@@ -41,7 +41,7 @@ use Zend\Stdlib\CallbackHandler,
  * @copyright  Copyright (c) 2005-2012 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  */
-class EventManager implements EventCollection, SharedEventManagerAware
+class EventManager implements EventCollection, SharedEventCollectionAware
 {
     /**
      * Subscribed events and their listeners
@@ -55,7 +55,7 @@ class EventManager implements EventCollection, SharedEventManagerAware
     protected $eventClass = 'Zend\EventManager\Event';
 
     /**
-     * Identifiers, used to pull shared signals from SharedEventManager instance
+     * Identifiers, used to pull shared signals from SharedEventCollection instance
      * @var array
      */
     protected $identifiers = array();
@@ -64,13 +64,13 @@ class EventManager implements EventCollection, SharedEventManagerAware
      * Shared connections
      * @var false|null|SharedEventCollection
      */
-    protected $sharedConnections = null;
+    protected $sharedCollections = null;
 
     /**
      * Constructor
      *
      * Allows optionally specifying identifier(s) to use to pull signals from a
-     * SharedEventManager.
+     * SharedEventCollection.
      *
      * @param  null|string|int|array|Traversable $identifiers
      * @return void
@@ -93,35 +93,35 @@ class EventManager implements EventCollection, SharedEventManagerAware
     }
 
     /**
-     * Set shared connections container
+     * Set shared collections container
      *
      * @param  SharedEventCollection $connections
      * @return void
      */
-    public function setSharedConnections(SharedEventCollection $sharedEventManager)
+    public function setSharedCollections(SharedEventCollection $sharedEventCollection)
     {
-        $this->sharedConnections = $sharedEventManager;
+        $this->sharedCollections = $sharedEventCollection;
         return $this;
     }
 
     /**
-     * Remove any shared connections
+     * Remove any shared collections
      * 
      * @return void
      */
-    public function unsetSharedConnections()
+    public function unsetSharedCollections()
     {
-        $this->sharedConnections = null;
+        $this->sharedCollections = null;
     }
 
     /**
-     * Get shared connections container
+     * Get shared collections container
      *
      * @return false|SharedEventCollection
      */
-    public function getSharedConnections()
+    public function getSharedCollections()
     {
-        return $this->sharedConnections;
+        return $this->sharedCollections;
     }
 
     /**
@@ -488,7 +488,7 @@ class EventManager implements EventCollection, SharedEventManagerAware
      */
     protected function getSharedListeners($event)
     {
-        if (!$sharedConnections = $this->getSharedConnections()) {
+        if (!$sharedCollections = $this->getSharedCollections()) {
             return array();
         }
 
@@ -496,7 +496,7 @@ class EventManager implements EventCollection, SharedEventManagerAware
         $sharedListeners = array();
 
         foreach ($identifiers as $id) {
-            if (!$listeners = $sharedConnections->getListeners($id, $event)) {
+            if (!$listeners = $sharedCollections->getListeners($id, $event)) {
                 continue;
             }
 
