@@ -52,10 +52,10 @@ class InstanceManager
     /**
      * @param bool $allowOverride
      */
-    public function __construct($allowOverride = false)
+    public function __construct(ConfigurationInterface $configuration = null)
     {
-        if ($allowOverride) {
-            $this->setAllowOverride($allowOverride);
+        if ($configuration) {
+            $configuration->configureInstanceManager($this);
         }
     }
 
@@ -74,6 +74,8 @@ class InstanceManager
      */
     public function setFactory($name, $factory, $shared = true)
     {
+        $name = $this->canonicalizeName($name);
+
         if ($this->allowOverride === false && $this->has($name)) {
             throw new Exception\DuplicateServiceNameException(
                 'A service by this name or alias already exists and cannot be overridden, please use an alternate name.'
@@ -94,7 +96,7 @@ class InstanceManager
         } else {
             array_push($this->abstractFactories, $factory);
         }
-
+        return $this;
     }
 
     /**
@@ -106,6 +108,8 @@ class InstanceManager
      */
     public function set($name, $service, $shared = true)
     {
+        $name = $this->canonicalizeName($name);
+
         if ($this->allowOverride === false && $this->has($name)) {
             throw new Exception\DuplicateServiceNameException(
                 'A service by this name or alias already exists and cannot be overridden, please use an alternate name.'
@@ -117,22 +121,24 @@ class InstanceManager
          */
 
         $this->instances[$name] = $service;
+        $this->shared[$name] = (bool) $shared;
+        return $this;
+    }
+
+    public function setShared($name, $isShared)
+    {
+        $name = $this->canonicalizeName($name);
+
+        if (!isset($this->factories[$name])) {
+            throw new Exception\InstanceNotFoundException();
+        }
+
+        $this->shared[$name] = (bool) $isShared;
         return $this;
     }
 
     /**
-     * Retrieve a registered service
-     *
-     * Tests first if a value is registered for the service, and, if so,
-     * returns it.
-     *
-     * If the value returned is a non-object callback or closure, the return
-     * value is retrieved, stored, and returned. Parameters passed to the method
-     * are passed to the callback, but only on the first retrieval.
-     *
-     * If the service requested matches a method in the method map, the return
-     * value of that method is returned. Parameters are passed to the matching
-     * method.
+     * Retrieve a registered instance
      *
      * @param  string $name
      * @param  array $params
@@ -140,6 +146,8 @@ class InstanceManager
      */
     public function get($name)
     {
+        $name = $this->canonicalizeName($name);
+
         $requestedName = $name;
 
         if ($this->hasAlias($name)) {
@@ -156,6 +164,10 @@ class InstanceManager
 
         if (!$instance) {
             $instance = $this->create(array($name, $requestedName));
+        }
+
+        if (isset($this->shared[$name]) && $this->shared[$name] === true) {
+            $this->instances[$name] = $instance;
         }
 
         return $instance;
@@ -176,6 +188,8 @@ class InstanceManager
         if (is_array($name)) {
             list($name, $requestedName) = $name;
         }
+
+        $name = $this->canonicalizeName($name);
 
         if (isset($this->factories[$name])) {
             $factory = $this->factories[$name];
@@ -238,11 +252,16 @@ class InstanceManager
 
     public function has($nameOrAlias)
     {
-        return (isset($this->instances[$nameOrAlias]) || isset($this->aliases[$nameOrAlias]));
+        $nameOrAlias = $this->canonicalizeName($nameOrAlias);
+
+        return (isset($this->factories[$nameOrAlias]) || isset($this->aliases[$nameOrAlias]) || isset($this->instances[$nameOrAlias]));
     }
 
     public function setAlias($alias, $nameOrAlias)
     {
+        $alias = $this->canonicalizeName($alias);
+        $nameOrAlias = $this->canonicalizeName($nameOrAlias);
+
         if (!is_string($alias) || $alias == '') {
             throw new Exception\InvalidServiceNameException('Invalid service name alias');
         }
@@ -261,6 +280,7 @@ class InstanceManager
 
     public function hasAlias($alias)
     {
+        $alias = $this->canonicalizeName($alias);
         return (isset($this->aliases[$alias]));
     }
 
@@ -282,6 +302,11 @@ class InstanceManager
         $this->peeringInstanceManagers[] = $instanceManager;
     }
 
+    protected function canonicalizeName($name)
+    {
+        return strtolower(str_replace(array('-', '_', ' '), '', $name));
+    }
+
     /**
      * @param callable $callable
      * @param string $name
@@ -299,6 +324,9 @@ class InstanceManager
 
         $circularDependencyResolver[spl_object_hash($this) . '-' . $name] = true;
         $instance = call_user_func($callable, $this, $name);
+        if ($instance === null) {
+            throw new Exception\InstanceNotCreatedException('The factory was called but did not return an instance.');
+        }
         unset($circularDependencyResolver[spl_object_hash($this) . '-' . $name]);
 
         return $instance;

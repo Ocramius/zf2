@@ -32,8 +32,8 @@ interface Bootstrapper
     /**
      * Bootstrap an application
      * 
-     * @param  AppContext $application 
+     * @param  ApplicationInterface $application
      * @return void
      */
-    public function bootstrap(AppContext $application);
+    public function bootstrap(ApplicationInterface $application);
 }

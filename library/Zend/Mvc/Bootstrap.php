@@ -77,7 +77,7 @@ class Bootstrap implements Bootstrapper
      * @param Application $application 
      * @return void
      */
-    public function bootstrap(AppContext $application)
+    public function bootstrap(ApplicationInterface $application)
     {
         $this->setupLocator($application);
         $this->setupRouter($application);
@@ -89,10 +89,10 @@ class Bootstrap implements Bootstrapper
     /**
      * Sets up the locator based on the configuration provided
      * 
-     * @param  AppContext $application 
+     * @param  ApplicationInterface $application
      * @return void
      */
-    protected function setupLocator(AppContext $application)
+    protected function setupLocator(ApplicationInterface $application)
     {
         $di = new Di;
         $di->instanceManager()->addTypePreference('Zend\Di\Locator', $di);
@@ -232,7 +232,7 @@ class Bootstrap implements Bootstrapper
      * @param  Application $application 
      * @return void
      */
-    protected function setupRouter(AppContext $application)
+    protected function setupRouter(ApplicationInterface $application)
     {
         $router = $application->getLocator()->get('Zend\Mvc\Router\RouteStack');
         $application->setRouter($router);
@@ -293,10 +293,10 @@ class Bootstrap implements Bootstrapper
      * Triggers with the keys "application" and "config", the latter pointing
      * to the Module Manager attached to the bootstrap.
      * 
-     * @param  AppContext $application 
+     * @param  ApplicationInterface $application
      * @return void
      */
-    protected function setupEvents(AppContext $application)
+    protected function setupEvents(ApplicationInterface $application)
     {
         $params = array(
             'application' => $application,
