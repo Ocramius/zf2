@@ -298,7 +298,7 @@ class InstanceManager
         }
 
         $circularDependencyResolver[spl_object_hash($this) . '-' . $name] = true;
-        $instance = call_user_func($callable, $this);
+        $instance = call_user_func($callable, $this, $name);
         unset($circularDependencyResolver[spl_object_hash($this) . '-' . $name]);
 
         return $instance;
