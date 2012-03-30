@@ -68,12 +68,12 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
     {
         $im->setFactory('EventManager', function (InstanceManager $im) {
             $em = new EventManager;
-            $em->setSharedCollection($im->get('SharedEventManager'));
+            $em->setSharedCollections($im->get('SharedEventManager'));
             return $em;
         });
 
         $im->setFactory('SharedEventManager', function () {
-            return new SharedEventManager;
+            return new \Zend\EventManager\SharedEventManager();
         });
 
         $im->setShared('EventManager', false);
@@ -87,8 +87,19 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
 
             $moduleManager = new \Zend\Module\Manager($configuration['modules'], $im->get('EventManager'));
             $moduleManager->events()->attachAggregate($defaultListeners);
-            $moduleManager->loadModules();
             return $moduleManager;
+        });
+
+        // controller factory
+        $im->addAbstractFactory(function ($im, $name) {
+            $mm = $im->get('ModuleManager');
+            $moduleParams = $mm->getEvent()->getParams();
+            $config = $moduleParams['configListener']->getMergedConfig();
+            $controllers = array_change_key_case($config['controllers']->toArray());
+            if (isset($controllers[$name])) {
+                return new $controllers[$name];
+            }
+            return false;
         });
 
         $im->setAlias('EM', 'EventManager');
@@ -98,7 +109,7 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
     public function bootstrap()
     {
         $this->eventManager = $this->instanceManager->get('EventManager');
-        $this->eventManager->setIdentifier(array(
+        $this->eventManager->setIdentifiers(array(
             __CLASS__,
             get_called_class(),
         ));
@@ -110,19 +121,19 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
         if ($im->has('Router')) {
             $this->router = $im->get('Router');
         } else {
-            $im->set('Router', ($this->router = new Router\SimpleRouteStack()));
+            $im->set('Router', ($this->router = new Router\Http\TreeRouteStack()));
         }
 
         if ($im->has('Request')) {
-            $this->router = $im->get('Request');
+            $this->request = $im->get('Request');
         } else {
             $im->set('Request', ($this->request = new PhpHttpRequest()));
         }
 
         if ($im->has('Response')) {
-            $this->router = $im->get('Response');
+            $this->response = $im->get('Response');
         } else {
-            $im->set('Response', ($this->request = new PhpHttpResponse()));
+            $im->set('Response', ($this->response = new PhpHttpResponse()));
         }
 
         $this->event = $event  = new MvcEvent();
@@ -135,6 +146,9 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
             'application' => $this,
             'config'      => $this->configuration,
         ));
+
+        $moduleManager = $im->get('ModuleManager');
+        $moduleManager->loadModules();
     }
 
     public function getInstanceManager()
@@ -289,6 +303,14 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
     {
         $request = $e->getRequest();
         $router  = $e->getRouter();
+
+        $mm = $this->instanceManager->get('mm');
+        $moduleParams = $mm->getEvent()->getParams();
+        $config = $moduleParams['configListener']->getMergedConfig();
+
+        foreach ($config['routes'] as $name => $route) {
+            $router->addRoute($name, $route);
+        }
 
         $routeMatch = $router->match($request);
 
