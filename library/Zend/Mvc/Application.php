@@ -102,6 +102,18 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
             return false;
         });
 
+        /* This probably needs to be moved, but lets have it here to get it working */
+        $im->set('View', $view = new \Zend\View\View);
+        $view->setEventManager($im->get('EventManager'));
+        $view->events()->attach(new \Zend\View\Strategy\PhpRendererStrategy(
+            $phpRenderer = new \Zend\View\Renderer\PhpRenderer(array('resolver' => 'Zend\View\Resolver\AggregateResolver'))
+        ));
+        $phpRenderer->setResolver($resolver = new \Zend\View\Resolver\AggregateResolver());
+        $resolver->attach(new \Zend\View\Resolver\TemplateMapResolver(array('layout/layout' => getcwd() . '/view/layout/layout.phtml')));
+        $resolver->attach(new \Zend\View\Resolver\TemplatePathStack(array('script_paths' => array('application' => getcwd() . '/view'))));
+
+
+
         $im->setAlias('EM', 'EventManager');
         $im->setAlias('MM', 'ModuleManager');
     }
@@ -115,6 +127,10 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
         ));
         $this->eventManager->attach('route', array($this, 'route'));
         $this->eventManager->attach('dispatch', array($this, 'dispatch'));
+
+        // this has to do with view:
+        $this->events()->attach($defaultRenderer = new \Zend\Mvc\View\DefaultRenderingStrategy($this->instanceManager->get('View')));
+        $defaultRenderer->setLayoutTemplate('layout/layout');
 
         $im = $this->instanceManager;
 
