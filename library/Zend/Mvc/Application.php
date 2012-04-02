@@ -2,21 +2,21 @@
 
 namespace Zend\Mvc;
 
-use ArrayObject,
-    Zend\EventManager\EventCollection,
-    Zend\EventManager\EventManager,
-    Zend\Http\Header\Cookie,
-    Zend\Http\PhpEnvironment\Request as PhpHttpRequest,
-    Zend\Http\PhpEnvironment\Response as PhpHttpResponse,
-    Zend\Uri\Http as HttpUri,
-    Zend\Stdlib\Dispatchable,
-    Zend\Stdlib\ArrayUtils,
-    Zend\Stdlib\Parameters,
-    Zend\Stdlib\RequestDescription as Request,
-    Zend\Stdlib\ResponseDescription as Response;
-
-use Zend\InstanceManager\InstanceManager,
-    Zend\InstanceManager\ConfigurationInterface as InstanceConfigurationInterface;
+use ArrayObject;
+use Zend\EventManager\EventCollection;
+use Zend\EventManager\EventManager;
+use Zend\EventManager\EventManagerAware;
+use Zend\Http\Header\Cookie;
+use Zend\Http\PhpEnvironment\Request as PhpHttpRequest;
+use Zend\Http\PhpEnvironment\Response as PhpHttpResponse;
+use Zend\InstanceManager\InstanceManager;
+use Zend\InstanceManager\ConfigurationInterface as InstanceConfigurationInterface;
+use Zend\Uri\Http as HttpUri;
+use Zend\Stdlib\Dispatchable;
+use Zend\Stdlib\ArrayUtils;
+use Zend\Stdlib\Parameters;
+use Zend\Stdlib\RequestDescription as Request;
+use Zend\Stdlib\ResponseDescription as Response;
 
 /**
  * Main application class for invoking applications
@@ -26,7 +26,9 @@ use Zend\InstanceManager\InstanceManager,
  * application, first routing, then dispatching the discovered controller. A
  * response will then be returned, which may then be sent to the caller.
  */
-class Application implements ApplicationInterface, InstanceConfigurationInterface
+class Application implements 
+    ApplicationInterface, 
+    EventManagerAware
 {
     const ERROR_CONTROLLER_CANNOT_DISPATCH = 'error-controller-cannot-dispatch';
     const ERROR_CONTROLLER_NOT_FOUND       = 'error-controller-not-found';
@@ -43,7 +45,7 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
     /**
      * @var EventManager
      */
-    protected $eventManager;
+    protected $events;
 
     /**
      * @var array
@@ -55,116 +57,92 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
      */
     protected $instanceManager = null;
 
+    /**
+     * @var \Zend\Module\Manager
+     */
+    protected $moduleManager;
 
 
     public function __construct($configuration, InstanceManager $instanceManager = null)
     {
         $this->configuration = $configuration;
-        $this->instanceManager = ($instanceManager) ?: new InstanceManager();
-        $this->configureInstanceManager($this->instanceManager);
+
+        if ((null === $instanceManager) && isset($configuration['instance_manager'])) {
+            if ($configuration['instance_manager'] instanceof InstanceManager) {
+                $instanceManager = $configuration['instance_manager'];
+            }
+            if (is_string($configuration['instance_manager']) && class_exists($configuration['instance_manager'])) {
+                $instanceManager = new $configuration['instance_manager']();
+            }
+        }
+        if (null === $instanceManager) {
+            $instanceManager = new InstanceManager();
+        }
+
+        if (!isset($configuration['use_application_manager']) || $configuration['use_application_manager']) {
+            $appManager = new ApplicationManager($configuration);
+            $appManager->configureInstanceManager($instanceManager);
+        }
+
+        $this->setEventManager($instanceManager->get('EventManager'));
+        $this->moduleManager = $instanceManager->get('ModuleManager');
+
+        $this->events->attach($instanceManager->get('RouteListener'));
+        $this->events->attach($instanceManager->get('DispatchListener'));
+        $this->events->attach($instanceManager->get('DefaultRenderingStrategy'));
+        $this->request  = $instanceManager->get('Request');
+        $this->response = $instanceManager->get('Response');
+
+        $this->instanceManager = $instanceManager;
     }
 
-    public function configureInstanceManager(InstanceManager $im)
+    public function getConfiguration()
     {
-        $im->setFactory('EventManager', function (InstanceManager $im) {
-            $em = new EventManager;
-            $em->setSharedCollections($im->get('SharedEventManager'));
-            return $em;
-        });
-
-        $im->setFactory('SharedEventManager', function () {
-            return new \Zend\EventManager\SharedEventManager();
-        });
-
-        $im->setShared('EventManager', false);
-
-        $configuration = $this->configuration;
-
-        $im->setFactory('ModuleManager', function (InstanceManager $im) use ($configuration) {
-            $listenerOptions  = new \Zend\Module\Listener\ListenerOptions($configuration['module_listener_options']);
-            $defaultListeners = new \Zend\Module\Listener\DefaultListenerAggregate($listenerOptions);
-            $defaultListeners->getConfigListener()->addConfigGlobPath("config/autoload/{,*.}{global,local}.config.php");
-
-            $moduleManager = new \Zend\Module\Manager($configuration['modules'], $im->get('EventManager'));
-            $moduleManager->events()->attachAggregate($defaultListeners);
-            return $moduleManager;
-        });
-
-        // controller factory
-        $im->addAbstractFactory(function ($im, $name) {
-            $mm = $im->get('ModuleManager');
-            $moduleParams = $mm->getEvent()->getParams();
-            $config = $moduleParams['configListener']->getMergedConfig();
-            $controllers = array_change_key_case($config['controllers']->toArray());
-            if (isset($controllers[$name])) {
-                return new $controllers[$name];
-            }
-            return false;
-        });
-
-        /* This probably needs to be moved, but lets have it here to get it working */
-        $im->set('View', $view = new \Zend\View\View);
-        $view->setEventManager($im->get('EventManager'));
-        $view->events()->attach(new \Zend\View\Strategy\PhpRendererStrategy(
-            $phpRenderer = new \Zend\View\Renderer\PhpRenderer(array('resolver' => 'Zend\View\Resolver\AggregateResolver'))
-        ));
-        $phpRenderer->setResolver($resolver = new \Zend\View\Resolver\AggregateResolver());
-        $resolver->attach(new \Zend\View\Resolver\TemplateMapResolver(array('layout/layout' => getcwd() . '/view/layout/layout.phtml')));
-        $resolver->attach(new \Zend\View\Resolver\TemplatePathStack(array('script_paths' => array('application' => getcwd() . '/view'))));
-
-
-
-        $im->setAlias('EM', 'EventManager');
-        $im->setAlias('MM', 'ModuleManager');
+        $this->instanceManager->get('config');
     }
 
     public function bootstrap()
     {
-        $this->eventManager = $this->instanceManager->get('EventManager');
-        $this->eventManager->setIdentifiers(array(
-            __CLASS__,
-            get_called_class(),
-        ));
-        $this->eventManager->attach('route', array($this, 'route'));
-        $this->eventManager->attach('dispatch', array($this, 'dispatch'));
+        $instanceManager = $this->instanceManager;
+        $events          = $this->events();
+        $sharedEvents    = $events->getSharedCollections();
 
-        // this has to do with view:
-        $this->events()->attach($defaultRenderer = new \Zend\Mvc\View\DefaultRenderingStrategy($this->instanceManager->get('View')));
-        $defaultRenderer->setLayoutTemplate('layout/layout');
+        // Setup error strategies
+        $noRouteStrategy   = $instanceManager->get('RouteNotFoundStrategy');
+        $exceptionStrategy = $instanceManager->get('ExceptionStrategy');
+        $events->attach($noRouteStrategy);
+        $events->attach($exceptionStrategy);
 
-        $im = $this->instanceManager;
+        // Setup default view events
+        $createViewModelListener = new View\CreateViewModelListener();
+        $injectTemplateListener  = new View\InjectTemplateListener();
+        $injectViewModelListener = new View\InjectViewModelListener();
 
-        if ($im->has('Router')) {
-            $this->router = $im->get('Router');
-        } else {
-            $im->set('Router', ($this->router = new Router\Http\TreeRouteStack()));
-        }
+        $sharedEvents->attach('Zend\Stdlib\Dispatchable', 'dispatch', array($createViewModelListener, 'createViewModelFromArray'), -80);
+        $sharedEvents->attach('Zend\Stdlib\Dispatchable', 'dispatch', array($createViewModelListener, 'createViewModelFromNull'), -80);
+        $sharedEvents->attach('Zend\Stdlib\Dispatchable', 'dispatch', array($injectTemplateListener,  'injectTemplate'), -90);
+        $sharedEvents->attach('Zend\Stdlib\Dispatchable', 'dispatch', array($injectViewModelListener, 'injectViewModel'), -100);
+        $events->attach('dispatch.error', array($injectViewModelListener, 'injectViewModel'), -100);
 
-        if ($im->has('Request')) {
-            $this->request = $im->get('Request');
-        } else {
-            $im->set('Request', ($this->request = new PhpHttpRequest()));
-        }
-
-        if ($im->has('Response')) {
-            $this->response = $im->get('Response');
-        } else {
-            $im->set('Response', ($this->response = new PhpHttpResponse()));
-        }
-
+        // Setup MVC Event
         $this->event = $event  = new MvcEvent();
         $event->setTarget($this);
-        $event->setRequest($this->getRequest())
-            ->setResponse($this->getResponse())
-            ->setRouter($this->getRouter());
+        $event->setApplication($this)
+              ->setRequest($this->getRequest())
+              ->setResponse($this->getResponse())
+              ->setRouter($instanceManager->get('Router'));
 
-        $this->events()->trigger('bootstrap', $this, array(
-            'application' => $this,
-            'config'      => $this->configuration,
-        ));
+        // Setup "layout" view model for event
+        $renderingStrategy = $instanceManager->get('DefaultRenderingStrategy');
+        $viewModel         = $event->getViewModel();
+        $viewModel->setTemplate($renderingStrategy->getLayoutTemplate());
 
-        $moduleManager = $im->get('ModuleManager');
-        $moduleManager->loadModules();
+        $renderer    = $this->instanceManager->get('PhpRenderer');
+        $modelHelper = $renderer->plugin('view_model');
+        $modelHelper->setRoot($viewModel);
+
+        // Trigger bootstrap events
+        $this->events()->trigger('bootstrap', $event);
     }
 
     public function getInstanceManager()
@@ -213,6 +191,23 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
     }
 
     /**
+     * Set the event manager instance
+     * 
+     * @param  EventCollection $eventManager 
+     * @return Application
+     */
+    public function setEventManager(EventCollection $eventManager)
+    {
+        $eventManager->setIdentifiers(array(
+            __CLASS__,
+            get_called_class(),
+            'application',
+        ));
+        $this->events = $eventManager;
+        return $this;
+    }
+
+    /**
      * Retrieve the event manager
      *
      * Lazy-loads an EventManager instance if none registered.
@@ -221,7 +216,7 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
      */
     public function events()
     {
-        return $this->eventManager;
+        return $this->events;
     }
 
     /**
@@ -308,120 +303,4 @@ class Application implements ApplicationInterface, InstanceConfigurationInterfac
         $events->trigger('finish', $event);
         return $event->getResponse();
     }
-
-    /**
-     * Route the request
-     *
-     * @param  MvcEvent $e
-     * @return Router\RouteMatch
-     */
-    public function route(MvcEvent $e)
-    {
-        $request = $e->getRequest();
-        $router  = $e->getRouter();
-
-        $mm = $this->instanceManager->get('mm');
-        $moduleParams = $mm->getEvent()->getParams();
-        $config = $moduleParams['configListener']->getMergedConfig();
-
-        foreach ($config['routes'] as $name => $route) {
-            $router->addRoute($name, $route);
-        }
-
-        $routeMatch = $router->match($request);
-
-        if (!$routeMatch instanceof Router\RouteMatch) {
-            $e->setError(static::ERROR_ROUTER_NO_MATCH);
-
-            $results = $this->events()->trigger('dispatch.error', $e);
-            if (count($results)) {
-                $return  = $results->last();
-            } else {
-                $return = $e->getParams();
-            }
-            return $return;
-        }
-
-        $e->setRouteMatch($routeMatch);
-        return $routeMatch;
-    }
-
-    /**
-     * Dispatch the matched route
-     *
-     * @param  MvcEvent $e
-     * @return mixed
-     */
-    public function dispatch(MvcEvent $e)
-    {
-        $routeMatch     = $e->getRouteMatch();
-        $controllerName = $routeMatch->getParam('controller', 'not-found');
-        $events         = $this->events();
-
-        try {
-            $controller = $this->instanceManager->get($controllerName);
-        } catch (ClassNotFoundException $exception) {
-            $error = clone $e;
-            $error->setError(static::ERROR_CONTROLLER_NOT_FOUND)
-                  ->setController($controllerName)
-                  ->setParam('exception', $exception);
-
-            $results = $events->trigger('dispatch.error', $error);
-            if (count($results)) {
-                $return  = $results->last();
-            } else {
-                $return = $error->getParams();
-            }
-            goto complete;
-        }
-
-        if (!$controller instanceof Dispatchable) {
-            $error = clone $e;
-            $error->setError(static::ERROR_CONTROLLER_INVALID)
-                  ->setController($controllerName)
-                  ->setControllerClass(get_class($controller));
-
-            $results = $events->trigger('dispatch.error', $error);
-            if (count($results)) {
-                $return  = $results->last();
-            } else {
-                $return = $error->getParams();
-            }
-            goto complete;
-        }
-
-        $request  = $e->getRequest();
-        $response = $this->getResponse();
-
-        if ($controller instanceof InjectApplicationEvent) {
-            $controller->setEvent($e);
-        }
-
-        try {
-            $return   = $controller->dispatch($request, $response);
-        } catch (\Exception $ex) {
-            $error = clone $e;
-            $error->setError(static::ERROR_EXCEPTION)
-                  ->setController($controllerName)
-                  ->setControllerClass(get_class($controller))
-                  ->setParam('exception', $ex);
-            $results = $events->trigger('dispatch.error', $error);
-            if (count($results)) {
-                $return  = $results->last();
-            } else {
-                $return = $error->getParams();
-            }
-        }
-
-        complete:
-
-        if (!is_object($return)) {
-            if (ArrayUtils::hasStringKeys($return)) {
-                $return = new ArrayObject($return, ArrayObject::ARRAY_AS_PROPS);
-            }
-        }
-        $e->setResult($return);
-        return $return;
-    }
-
 }

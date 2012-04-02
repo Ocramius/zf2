@@ -9,12 +9,18 @@ use Zend\EventManager\Event,
 
 class MvcEvent extends Event
 {
+    protected $application;
     protected $request;
     protected $response;
     protected $result;
     protected $router;
     protected $routeMatch;
     protected $viewModel;
+
+    public function getApplication()
+    {
+        return $this->application;
+    }
 
     public function getRouter()
     {
@@ -92,6 +98,13 @@ class MvcEvent extends Event
     public function getResult()
     {
         return $this->getParam('__RESULT__');
+    }
+
+    public function setApplication(ApplicationInterface $application)
+    {
+        $this->setParam('application', $application);
+        $this->application = $application;
+        return $this;
     }
 
     public function setResult($result)
