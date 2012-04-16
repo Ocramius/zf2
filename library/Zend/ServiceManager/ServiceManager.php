@@ -1,8 +1,8 @@
 <?php
 
-namespace Zend\InstanceManager;
+namespace Zend\ServiceManager;
 
-class InstanceManager
+class ServiceManager
 {
     const SCOPE_PARENT = 'parent';
     const SCOPE_CHILD = 'child';
@@ -40,9 +40,9 @@ class InstanceManager
     protected $aliases = array();
 
     /**
-     * @var InstanceManager[]
+     * @var ServiceManager[]
      */
-    protected $peeringInstanceManagers = array();
+    protected $peeringServiceManagers = array();
 
     /**
      * @var bool Track whether not ot throw exceptions during create()
@@ -55,7 +55,7 @@ class InstanceManager
     public function __construct(ConfigurationInterface $configuration = null)
     {
         if ($configuration) {
-            $configuration->configureInstanceManager($this);
+            $configuration->configureServiceManager($this);
         }
     }
 
@@ -104,7 +104,7 @@ class InstanceManager
      *
      * @param  string $name
      * @param  mixed $service
-     * @return InstanceManager
+     * @return ServiceManager
      */
     public function set($name, $service, $shared = true)
     {
@@ -193,10 +193,10 @@ class InstanceManager
 
         if (isset($this->factories[$name])) {
             $factory = $this->factories[$name];
-            if ($factory instanceof InstanceFactoryInterface) {
-                $instance = $this->createInstance(array($factory, 'createInstance'), $name);
+            if ($factory instanceof FactoryInterface) {
+                $instance = $this->createService(array($factory, 'createService'), $name);
             } elseif (is_callable($factory)) {
-                $instance = $this->createInstance($factory, $name);
+                $instance = $this->createService($factory, $name);
             } else {
                 throw new Exception\InvalidFactoryException(sprintf(
                     'While attempting to create %s%s an invalid factory was registered for this instance type.',
@@ -208,10 +208,10 @@ class InstanceManager
 
         if (!$instance && !empty($this->abstractFactories)) {
             foreach ($this->abstractFactories as $abstractFactory) {
-                if ($abstractFactory instanceof InstanceFactoryInterface) {
-                    $instance = $this->createInstance(array($abstractFactory, 'createInstance'), $name);
+                if ($abstractFactory instanceof AbstractFactoryInterface) {
+                    $instance = $this->createService(array($abstractFactory, 'createService'), $name);
                 } elseif (is_callable($abstractFactory)) {
-                    $instance = $this->createInstance($abstractFactory, $name);
+                    $instance = $this->createService($abstractFactory, $name);
                 }
                 if (is_object($instance)) {
                     break;
@@ -226,10 +226,10 @@ class InstanceManager
             }
         }
 
-        if (!$instance && $this->peeringInstanceManagers) {
-            foreach ($this->peeringInstanceManagers as $peeringInstanceManager) {
-                $peeringInstanceManager->createThrowException = false;
-                $instance = $peeringInstanceManager->get($requestedName ?: $name);
+        if (!$instance && $this->peeringServiceManagers) {
+            foreach ($this->peeringServiceManagers as $peeringServiceManager) {
+                $peeringServiceManager->createThrowException = false;
+                $instance = $peeringServiceManager->get($requestedName ?: $name);
             }
         }
 
@@ -242,9 +242,9 @@ class InstanceManager
         }
 
         // service locator?
-        if ($instance instanceof InstanceManagerAwareInterface) {
-            /* @var $instance InstanceManagerAwareInterface */
-            $instance->setInstanceManager($this);
+        if ($instance instanceof ServiceManagerAwareInterface) {
+            /* @var $instance ServiceManagerAwareInterface */
+            $instance->setServiceManager($this);
         }
 
         return $instance;
@@ -284,9 +284,9 @@ class InstanceManager
         return (isset($this->aliases[$alias]));
     }
 
-    public function createScopedInstanceManager($peering = self::SCOPE_PARENT)
+    public function createScopedServiceManager($peering = self::SCOPE_PARENT)
     {
-        $instanceManager = new InstanceManager();
+        $instanceManager = new ServiceManager();
         // @todo make these flags so both are possible
         if ($peering == self::SCOPE_PARENT) {
             $instanceManager->registerPeerInstanceManager($this);
@@ -297,9 +297,9 @@ class InstanceManager
         return $instanceManager;
     }
 
-    public function registerPeerInstanceManager(InstanceManager $instanceManager)
+    public function registerPeerInstanceManager(ServiceManager $instanceManager)
     {
-        $this->peeringInstanceManagers[] = $instanceManager;
+        $this->peeringServiceManagers[] = $instanceManager;
     }
 
     protected function canonicalizeName($name)
@@ -313,7 +313,7 @@ class InstanceManager
      * @return object
      * @throws \Exception
      */
-    protected function createInstance($callable, $name)
+    protected function createService($callable, $name)
     {
         static $circularDependencyResolver = array();
 

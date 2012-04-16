@@ -5,7 +5,8 @@ namespace Zend\Mvc;
 use ArrayObject;
 use Zend\EventManager\EventCollection;
 use Zend\EventManager\ListenerAggregate;
-use Zend\InstanceManager\Exception as InstanceException;
+use Zend\ServiceManager\ServiceManager;
+use Zend\ServiceManager\Exception as InstanceException;
 use Zend\Stdlib\ArrayUtils;
 use Zend\Stdlib\Dispatchable;
 
@@ -33,7 +34,7 @@ class DispatchListener implements ListenerAggregate
         $controllerName = $routeMatch->getParam('controller', 'not-found');
         $application    = $e->getApplication();
         $events         = $application->events();
-        $locator        = $application->getInstanceManager();
+        $locator        = $application->getServiceManager();
 
         try {
             $controller = $locator->get($controllerName);
@@ -45,7 +46,7 @@ class DispatchListener implements ListenerAggregate
 
             $results = $events->trigger('dispatch.error', $error);
             if (count($results)) {
-                $return  = $results->last();
+                $return = $results->last();
             } else {
                 $return = $error->getParams();
             }

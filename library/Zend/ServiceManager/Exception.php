@@ -1,6 +1,6 @@
 <?php
 
-namespace Zend\InstanceManager;
+namespace Zend\ServiceManager;
 
 interface Exception
 {

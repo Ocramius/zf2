@@ -1,6 +1,6 @@
 <?php
 
-namespace Zend\InstanceManager;
+namespace Zend\ServiceManager;
 
 class Configuration implements ConfigurationInterface
 {
@@ -21,7 +21,7 @@ class Configuration implements ConfigurationInterface
         return array();
     }
 
-    public function getInstances()
+    public function getServices()
     {
         return array();
     }
@@ -36,7 +36,7 @@ class Configuration implements ConfigurationInterface
         return array();
     }
 
-    public function configureInstanceManager(InstanceManager $instanceManager)
+    public function configureServiceManager(ServiceManager $instanceManager)
     {
         foreach ($this->getFactories() as $name => $factory) {
             $instanceManager->setFactory($name, $factory);

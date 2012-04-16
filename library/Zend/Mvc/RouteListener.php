@@ -29,8 +29,8 @@ class RouteListener implements ListenerAggregate
         $request = $e->getRequest();
         $router  = $e->getRouter();
 
-        $instanceManager = $target->getInstanceManager();
-        $mm              = $instanceManager->get('mm');
+        $instanceManager = $target->getServiceManager();
+        $mm              = $instanceManager->get('ModuleManager');
         $moduleParams    = $mm->getEvent()->getParams();
         $config          = $moduleParams['configListener']->getMergedConfig();
 

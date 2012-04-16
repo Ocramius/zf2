@@ -2,7 +2,7 @@
 
 namespace Zend\Mvc;
 
-use Zend\InstanceManager\InstanceManager,
+use Zend\ServiceManager\ServiceManager,
     Zend\EventManager\EventCollection,
     Zend\Stdlib\RequestDescription as Request,
     Zend\Stdlib\ResponseDescription as Response;
@@ -14,9 +14,9 @@ interface ApplicationInterface
     /**
      * Get the locator object
      * 
-     * @return InstanceManager
+     * @return ServiceManager
      */
-    public function getInstanceManager();
+    public function getServiceManager();
 
     /**
      * Get the request object

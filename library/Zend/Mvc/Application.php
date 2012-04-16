@@ -9,8 +9,8 @@ use Zend\EventManager\EventManagerAware;
 use Zend\Http\Header\Cookie;
 use Zend\Http\PhpEnvironment\Request as PhpHttpRequest;
 use Zend\Http\PhpEnvironment\Response as PhpHttpResponse;
-use Zend\InstanceManager\InstanceManager;
-use Zend\InstanceManager\ConfigurationInterface as InstanceConfigurationInterface;
+use Zend\ServiceManager\ServiceManager;
+use Zend\ServiceManager\ConfigurationInterface as InstanceConfigurationInterface;
 use Zend\Uri\Http as HttpUri;
 use Zend\Stdlib\Dispatchable;
 use Zend\Stdlib\ArrayUtils;
@@ -53,9 +53,9 @@ class Application implements
     protected $configuration = null;
 
     /**
-     * @var InstanceManager
+     * @var ServiceManager
      */
-    protected $instanceManager = null;
+    protected $serviceManager = null;
 
     /**
      * @var \Zend\Module\Manager
@@ -63,53 +63,53 @@ class Application implements
     protected $moduleManager;
 
 
-    public function __construct($configuration, InstanceManager $instanceManager = null)
+    public function __construct($configuration, ServiceManager $instanceManager = null)
     {
         $this->configuration = $configuration;
 
-        if ((null === $instanceManager) && isset($configuration['instance_manager'])) {
-            if ($configuration['instance_manager'] instanceof InstanceManager) {
-                $instanceManager = $configuration['instance_manager'];
-            }
-            if (is_string($configuration['instance_manager']) && class_exists($configuration['instance_manager'])) {
-                $instanceManager = new $configuration['instance_manager']();
-            }
-        }
-        if (null === $instanceManager) {
-            $instanceManager = new InstanceManager();
-        }
-
-        if (!isset($configuration['use_application_manager']) || $configuration['use_application_manager']) {
-            $appManager = new ApplicationManager($configuration);
-            $appManager->configureInstanceManager($instanceManager);
-        }
+//        if ((null === $instanceManager) && isset($configuration['instance_manager'])) {
+//            if ($configuration['instance_manager'] instanceof ServiceManager) {
+//                $instanceManager = $configuration['instance_manager'];
+//            }
+//            if (is_string($configuration['instance_manager']) && class_exists($configuration['instance_manager'])) {
+//                $instanceManager = new $configuration['instance_manager']();
+//            }
+//        }
+//        if (null === $instanceManager) {
+//            $instanceManager = new ServiceManager();
+//        }
+//
+//        if (!isset($configuration['use_application_manager']) || $configuration['use_application_manager']) {
+//            $appManager = new ApplicationManager($configuration);
+//            $appManager->configureInstanceManager($instanceManager);
+//        }
 
         $this->setEventManager($instanceManager->get('EventManager'));
         $this->moduleManager = $instanceManager->get('ModuleManager');
 
         $this->events->attach($instanceManager->get('RouteListener'));
         $this->events->attach($instanceManager->get('DispatchListener'));
-        $this->events->attach($instanceManager->get('DefaultRenderingStrategy'));
+        $this->events->attach($instanceManager->get('ViewDefaultRenderingStrategy'));
         $this->request  = $instanceManager->get('Request');
         $this->response = $instanceManager->get('Response');
 
-        $this->instanceManager = $instanceManager;
+        $this->serviceManager = $instanceManager;
     }
 
     public function getConfiguration()
     {
-        $this->instanceManager->get('config');
+        $this->serviceManager->get('config');
     }
 
     public function bootstrap()
     {
-        $instanceManager = $this->instanceManager;
+        $serviceManager = $this->serviceManager;
         $events          = $this->events();
         $sharedEvents    = $events->getSharedCollections();
 
         // Setup error strategies
-        $noRouteStrategy   = $instanceManager->get('RouteNotFoundStrategy');
-        $exceptionStrategy = $instanceManager->get('ExceptionStrategy');
+        $noRouteStrategy   = $serviceManager->get('ViewRouteNotFoundStrategy');
+        $exceptionStrategy = $serviceManager->get('ViewExceptionStrategy');
         $events->attach($noRouteStrategy);
         $events->attach($exceptionStrategy);
 
@@ -130,24 +130,25 @@ class Application implements
         $event->setApplication($this)
               ->setRequest($this->getRequest())
               ->setResponse($this->getResponse())
-              ->setRouter($instanceManager->get('Router'));
+              ->setRouter($serviceManager->get('Router'));
 
         // Setup "layout" view model for event
-        $renderingStrategy = $instanceManager->get('DefaultRenderingStrategy');
+        $renderingStrategy = $serviceManager->get('ViewDefaultRenderingStrategy');
         $viewModel         = $event->getViewModel();
         $viewModel->setTemplate($renderingStrategy->getLayoutTemplate());
 
-        $renderer    = $this->instanceManager->get('PhpRenderer');
+        $renderer    = $this->serviceManager->get('ViewPhpRenderer');
         $modelHelper = $renderer->plugin('view_model');
         $modelHelper->setRoot($viewModel);
 
         // Trigger bootstrap events
         $this->events()->trigger('bootstrap', $event);
+        return $this;
     }
 
-    public function getInstanceManager()
+    public function getServiceManager()
     {
-        return $this->instanceManager;
+        return $this->serviceManager;
     }
 
     /**

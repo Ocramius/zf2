@@ -8,9 +8,9 @@ use Zend\EventManager\EventManagerAware;
 use Zend\EventManager\SharedEventManager;
 use Zend\Http\PhpEnvironment\Request as PhpHttpRequest;
 use Zend\Http\PhpEnvironment\Response as PhpHttpResponse;
-use Zend\InstanceManager\ConfigurationInterface;
-use Zend\InstanceManager\InstanceManager;
-use Zend\InstanceManager\InstanceManagerAware;
+use Zend\ServiceManager\ConfigurationInterface;
+use Zend\ServiceManager\ServiceManager;
+use Zend\ServiceManager\InstanceManagerAware;
 use Zend\Loader\Pluggable;
 use Zend\Module\Listener\ListenerOptions;
 use Zend\Module\Listener\DefaultListenerAggregate;
@@ -34,7 +34,7 @@ class ApplicationManager implements ConfigurationInterface
         $this->appConfig = $appConfig;
     }
 
-    public function configureInstanceManager(InstanceManager $im)
+    public function configureInstanceManager(ServiceManager $im)
     {
         $im->setFactory('SharedEventManager', function($im) {
             return new SharedEventManager();
@@ -51,7 +51,7 @@ class ApplicationManager implements ConfigurationInterface
 
         $configuration = $this->appConfig;
 
-        $im->setFactory('ModuleManager', function (InstanceManager $im) use ($configuration) {
+        $im->setFactory('ModuleManager', function (ServiceManager $im) use ($configuration) {
             $listenerOptions  = new ListenerOptions($configuration['module_listener_options']);
             $defaultListeners = new DefaultListenerAggregate($listenerOptions);
             $defaultListeners->getConfigListener()->addConfigGlobPath("config/autoload/{,*.}{global,local}.config.php");

@@ -1,8 +1,8 @@
 <?php
 
-namespace Zend\InstanceManager\Exception;
+namespace Zend\ServiceManager\Exception;
 
-use Zend\InstanceManager\Exception;
+use Zend\ServiceManager\Exception;
 
 class InstanceNotCreatedException extends \RuntimeException implements Exception
 {
