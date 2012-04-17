@@ -13,37 +13,21 @@ class ControllerLoaderFactory implements AbstractFactoryInterface
 {
     public function createService(ServiceManager $serviceManager, $name)
     {
-        /*
-        $scopedSM = $serviceManager->createScopedServiceManager();
+        $controllerLoader = $serviceManager->createScopedServiceManager();
         $configuration = $serviceManager->get('Configuration');
-        if (isset($configuration->controllers)) {
-            foreach ($configuration->controllers as $name => $service) {
+        foreach ($configuration->controllers as $name => $controller) {
+            $controllerLoader->setSource($name, $controller);
+        }
+        $controllerLoader->addInitializer(function ($instance) use ($serviceManager) {
+            if ($instance instanceof EventManagerAware) {
+                $instance->setEventManager($serviceManager->get('EventManager'));
             }
-        }
-        */
-
-
-        if ($serviceManager->has($name)) {
-            $controller = $serviceManager->get($name);
-            return $controller;
-        }
-
-        $config       = $serviceManager->get('Configuration');
-        $controllers  = array_change_key_case($config['controllers']->toArray());
-        if (!isset($controllers[$name])) {
-            return false;
-        }
-        $controller = new $controllers[$name];
-        if ($controller instanceof ServiceManagerAwareInterface) {
-            $controller->setInstanceManager($serviceManager);
-        }
-        if ($controller instanceof EventManagerAware) {
-            $controller->setEventManager($serviceManager->get('EventManager'));
-        }
-        if ($controller instanceof Pluggable) {
-            $controller->setBroker($serviceManager->get('ControllerPluginBroker'));
-        }
-
-        return $controller;
+        });
+        $controllerLoader->addInitializer(function ($instance) use ($serviceManager) {
+            if ($instance instanceof Pluggable) {
+                $instance->setBroker($serviceManager->get('ControllerPluginBroker'));
+            }
+        });
+        return $controllerLoader;
     }
 }

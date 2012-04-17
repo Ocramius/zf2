@@ -36,11 +36,11 @@ class ApplicationManager implements ConfigurationInterface
 
     public function configureInstanceManager(ServiceManager $im)
     {
-        $im->setFactory('SharedEventManager', function($im) {
+        $im->setSource('SharedEventManager', function($im) {
             return new SharedEventManager();
         });
 
-        $im->setFactory('EventManager', function($im) {
+        $im->setSource('EventManager', function($im) {
             $sharedEvents = $im->get('SharedEventManager');
             $eventManager = new EventManager();
             $eventManager->setSharedCollections($sharedEvents);
@@ -51,7 +51,7 @@ class ApplicationManager implements ConfigurationInterface
 
         $configuration = $this->appConfig;
 
-        $im->setFactory('ModuleManager', function (ServiceManager $im) use ($configuration) {
+        $im->setSource('ModuleManager', function (ServiceManager $im) use ($configuration) {
             $listenerOptions  = new ListenerOptions($configuration['module_listener_options']);
             $defaultListeners = new DefaultListenerAggregate($listenerOptions);
             $defaultListeners->getConfigListener()->addConfigGlobPath("config/autoload/{,*.}{global,local}.config.php");
@@ -63,7 +63,7 @@ class ApplicationManager implements ConfigurationInterface
         $im->setAlias('MM', 'ModuleManager');
 
         // Config
-        $im->setFactory('config', function($im) {
+        $im->setSource('config', function($im) {
             $mm           = $im->get('ModuleManager');
             $mm->loadModules();
             $moduleParams = $mm->getEvent()->getParams();
@@ -76,33 +76,33 @@ class ApplicationManager implements ConfigurationInterface
         $im->set('Response', new PhpHttpResponse());
 
         // Router
-        $im->setFactory('Router', function($im, $name) {
+        $im->setSource('Router', function($im, $name) {
             $config = $im->get('config');
             $routes = $config->routes ?: array();
             $router = Router\Http\TreeRouteStack::factory($routes);
             return $router;
         });
-        $im->setFactory('RouteListener', function($im) {
+        $im->setSource('RouteListener', function($im) {
             return new RouteListener();
         });
-        $im->setFactory('DispatchListener', function ($im) {
+        $im->setSource('DispatchListener', function ($im) {
             return new DispatchListener();
         });
 
 
         // controller factory
-        $im->setFactory('ControllerPluginLoader', function ($im, $name) {
+        $im->setSource('ControllerPluginLoader', function ($im, $name) {
             $config = $im->get('config');
             $map    = (isset($config->controller) && isset($config->controller->map)) ? $config->controller->map: array();
             $loader = new Controller\PluginLoader($map);
             return $loader;
         });
-        $im->setFactory('ControllerPluginBroker', function ($im, $name) {
+        $im->setSource('ControllerPluginBroker', function ($im, $name) {
             $broker = new Controller\PluginBroker();
             $broker->setClassLoader($im->get('ControllerPluginLoader'));
             return $broker;
         });
-        $im->addAbstractFactory(function ($im, $name) {
+        $im->addAbstractSource(function ($im, $name) {
             if ($im->has($name)) {
                 $controller = $im->get($name);
                 return $controller;
@@ -128,7 +128,7 @@ class ApplicationManager implements ConfigurationInterface
         });
 
         // View layer
-        $im->setFactory('ViewHelperLoader', function($im, $name) {
+        $im->setSource('ViewHelperLoader', function($im, $name) {
             $config = $im->get('config');
             if (isset($config->view) && isset($config->view->helper_map)) {
                 $map = $config->view->helper_map;
@@ -137,7 +137,7 @@ class ApplicationManager implements ConfigurationInterface
             }
             return new ViewHelperLoader($map);
         });
-        $im->setFactory('TemplateMapResolver', function($im, $name) {
+        $im->setSource('TemplateMapResolver', function($im, $name) {
             $config = $im->get('config');
             if (isset($config->view) && isset($config->view->template_map)) {
                 $map = $config->view->template_map;
@@ -146,7 +146,7 @@ class ApplicationManager implements ConfigurationInterface
             }
             return new TemplateMapResolver($map);
         });
-        $im->setFactory('TemplatePathStack', function($im, $name) {
+        $im->setSource('TemplatePathStack', function($im, $name) {
             $config = $im->get('config');
             if (isset($config->view) && isset($config->view->template_path_stack)) {
                 $stack = $config->view->template_path_stack;
@@ -155,7 +155,7 @@ class ApplicationManager implements ConfigurationInterface
             }
             return new TemplatePathStack($stack);
         });
-        $im->setFactory('AggregateResolver', function($im, $name) {
+        $im->setSource('AggregateResolver', function($im, $name) {
             $map   = $im->get('TemplateMapResolver');
             $stack = $im->get('TemplatePathStack');
             $aggregate = new AggregateResolver();
@@ -163,7 +163,7 @@ class ApplicationManager implements ConfigurationInterface
             $aggregate->attach($stack);
             return $aggregate;
         });
-        $im->setFactory('PhpRenderer', function($im, $name) {
+        $im->setSource('PhpRenderer', function($im, $name) {
             $resolver     = $im->get('AggregateResolver');
             $helperLoader = $im->get('ViewHelperLoader');
 
@@ -187,18 +187,18 @@ class ApplicationManager implements ConfigurationInterface
             $renderer->setResolver($resolver);
             return $renderer;
         });
-        $im->setFactory('PhpRendererStrategy', function($im, $name) {
+        $im->setSource('PhpRendererStrategy', function($im, $name) {
             $renderer   = $im->get('PhpRenderer');
             return new PhpRendererStrategy($renderer);
         });
-        $im->setFactory('View', function($im, $name) {
+        $im->setSource('View', function($im, $name) {
             $view = new ViewManager;
             $view->setEventManager($im->get('EventManager'));
             $view->events()->attachAggregate($im->get('PhpRendererStrategy'));
             return $view;
         });
 
-        $im->setFactory('DefaultRenderingStrategy', function($im, $name) {
+        $im->setSource('DefaultRenderingStrategy', function($im, $name) {
             $config   = $im->get('config');
             $strategy = new View\DefaultRenderingStrategy($im->get('View'));
             $layout   = (isset($config->view) && isset($config->view->layout)) ? $config->view->layout : 'layout/layout';
@@ -206,7 +206,7 @@ class ApplicationManager implements ConfigurationInterface
             return $strategy;
         });
 
-        $im->setFactory('RouteNotFoundStrategy', function($im, $name) {
+        $im->setSource('RouteNotFoundStrategy', function($im, $name) {
             $config                = $im->get('config');
             $displayNotFoundReason = ($config->view->display_not_found_reason) ?: false;
             $notFoundTemplate      = ($config->view->not_found_template) ?: '404';
@@ -216,7 +216,7 @@ class ApplicationManager implements ConfigurationInterface
             return $strategy;
         });
 
-        $im->setFactory('ExceptionStrategy', function($im, $name) {
+        $im->setSource('ExceptionStrategy', function($im, $name) {
             $config                = $im->get('config');
             $displayExceptions = ($config->view->display_exceptions) ?: false;
             $exceptionTemplate      = ($config->view->exception_template) ?: 'error';

@@ -3,7 +3,8 @@
 namespace Zend\Mvc\Service;
 
 use Zend\ServiceManager\ConfigurationInterface,
-    Zend\ServiceManager\ServiceManager;
+    Zend\ServiceManager\ServiceManager,
+    Zend\ServiceManager\ServiceManagerAwareInterface;
 
 class DefaultServiceConfiguration implements ConfigurationInterface
 {
@@ -57,11 +58,11 @@ class DefaultServiceConfiguration implements ConfigurationInterface
         }
 
         foreach ($this->factories as $name => $factoryClass) {
-            $serviceManager->setFactory($name, new $factoryClass);
+            $serviceManager->setSource($name, new $factoryClass);
         }
 
         foreach ($this->abstractFactories as $factoryClass) {
-            $serviceManager->addAbstractFactory(new $factoryClass);
+            $serviceManager->addAbstractSource(new $factoryClass);
         }
 
         foreach ($this->aliases as $name => $service) {
@@ -71,6 +72,12 @@ class DefaultServiceConfiguration implements ConfigurationInterface
         foreach ($this->shared as $name => $value) {
             $serviceManager->setShared($name, $value);
         }
+
+        $serviceManager->addInitializer(function ($instance) use ($serviceManager) {
+            if ($instance instanceof ServiceManagerAwareInterface) {
+                $instance->setServiceManager($instance);
+            }
+        });
     }
 
 }

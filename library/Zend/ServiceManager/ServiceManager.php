@@ -13,14 +13,14 @@ class ServiceManager
     protected $allowOverride = false;
 
     /**
-     * @var Closure|InstanceFactoryInterface[]
+     * @var string|callable|Closure|InstanceFactoryInterface[]
      */
-    protected $factories = array();
+    protected $sources = array();
 
     /**
      * @var Closure|InstanceFactoryInterface[]
      */
-    protected $abstractFactories = array();
+    protected $abstractSources = array();
 
     /**
      * @var array
@@ -38,6 +38,11 @@ class ServiceManager
      * @var array
      */
     protected $aliases = array();
+
+    /**
+     * @var array
+     */
+    protected $initializers = array();
 
     /**
      * @var ServiceManager[]
@@ -72,7 +77,7 @@ class ServiceManager
      * @param $factory
      * @throws Exception\DuplicateServiceNameException
      */
-    public function setFactory($name, $factory, $shared = true)
+    public function setSource($name, $factory, $shared = true)
     {
         $name = $this->canonicalizeName($name);
 
@@ -81,7 +86,7 @@ class ServiceManager
                 'A service by this name or alias already exists and cannot be overridden, please use an alternate name.'
             );
         }
-        $this->factories[$name] = $factory;
+        $this->sources[$name] = $factory;
         $this->shared[$name] = $shared;
     }
 
@@ -89,14 +94,22 @@ class ServiceManager
      * @param $factory
      * @param bool $topOfStack
      */
-    public function addAbstractFactory($factory, $topOfStack = true)
+    public function addAbstractSource($factory, $topOfStack = true)
     {
         if ($topOfStack) {
-            array_unshift($this->abstractFactories, $factory);
+            array_unshift($this->abstractSources, $factory);
         } else {
-            array_push($this->abstractFactories, $factory);
+            array_push($this->abstractSources, $factory);
         }
         return $this;
+    }
+
+    public function addInitializer($initializer)
+    {
+        if (!is_callable($initializer)) {
+            throw new Exception\InvalidArgumentException('$initializer should be callable.');
+        }
+        $this->initializers[] = $initializer;
     }
 
     /**
@@ -129,7 +142,7 @@ class ServiceManager
     {
         $name = $this->canonicalizeName($name);
 
-        if (!isset($this->factories[$name])) {
+        if (!isset($this->sources[$name])) {
             throw new Exception\InstanceNotFoundException();
         }
 
@@ -191,12 +204,14 @@ class ServiceManager
 
         $name = $this->canonicalizeName($name);
 
-        if (isset($this->factories[$name])) {
-            $factory = $this->factories[$name];
-            if ($factory instanceof FactoryInterface) {
-                $instance = $this->createService(array($factory, 'createService'), $name);
-            } elseif (is_callable($factory)) {
-                $instance = $this->createService($factory, $name);
+        if (isset($this->sources[$name])) {
+            $source = $this->sources[$name];
+            if ($source instanceof FactoryInterface) {
+                $instance = $this->createServiceViaCallback(array($source, 'createService'), $name);
+            } elseif (is_callable($source)) {
+                $instance = $this->createServiceViaCallback($source, $name);
+            } elseif (is_string($source) && class_exists($source, true)) {
+                $instance = new $source;
             } else {
                 throw new Exception\InvalidFactoryException(sprintf(
                     'While attempting to create %s%s an invalid factory was registered for this instance type.',
@@ -206,12 +221,12 @@ class ServiceManager
             }
         }
 
-        if (!$instance && !empty($this->abstractFactories)) {
-            foreach ($this->abstractFactories as $abstractFactory) {
-                if ($abstractFactory instanceof AbstractFactoryInterface) {
-                    $instance = $this->createService(array($abstractFactory, 'createService'), $name);
-                } elseif (is_callable($abstractFactory)) {
-                    $instance = $this->createService($abstractFactory, $name);
+        if (!$instance && !empty($this->abstractSources)) {
+            foreach ($this->abstractSources as $abstractSource) {
+                if ($abstractSource instanceof AbstractFactoryInterface) {
+                    $instance = $this->createServiceViaCallback(array($abstractSource, 'createService'), $name);
+                } elseif (is_callable($abstractSource)) {
+                    $instance = $this->createServiceViaCallback($abstractSource, $name);
                 }
                 if (is_object($instance)) {
                     break;
@@ -233,7 +248,7 @@ class ServiceManager
             }
         }
 
-        if ($this->createThrowException == true && !$instance || !is_object($instance)) {
+        if ($this->createThrowException == true && $instance === false) {
             throw new Exception\InvalidServiceException(sprintf(
                 'No valid instance was found for %s%s',
                 $name,
@@ -241,10 +256,12 @@ class ServiceManager
             ));
         }
 
-        // service locator?
-        if ($instance instanceof ServiceManagerAwareInterface) {
-            /* @var $instance ServiceManagerAwareInterface */
-            $instance->setServiceManager($this);
+        foreach ($this->initializers as $initializer) {
+            if ($initializer instanceof InitializerInterface) {
+                $initializer->initialize($instance);
+            } else {
+                $initializer($instance);
+            }
         }
 
         return $instance;
@@ -254,7 +271,7 @@ class ServiceManager
     {
         $nameOrAlias = $this->canonicalizeName($nameOrAlias);
 
-        return (isset($this->factories[$nameOrAlias]) || isset($this->aliases[$nameOrAlias]) || isset($this->instances[$nameOrAlias]));
+        return (isset($this->sources[$nameOrAlias]) || isset($this->aliases[$nameOrAlias]) || isset($this->instances[$nameOrAlias]));
     }
 
     public function setAlias($alias, $nameOrAlias)
@@ -313,7 +330,7 @@ class ServiceManager
      * @return object
      * @throws \Exception
      */
-    protected function createService($callable, $name)
+    protected function createServiceViaCallback($callable, $name)
     {
         static $circularDependencyResolver = array();
 

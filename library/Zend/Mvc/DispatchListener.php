@@ -34,10 +34,11 @@ class DispatchListener implements ListenerAggregate
         $controllerName = $routeMatch->getParam('controller', 'not-found');
         $application    = $e->getApplication();
         $events         = $application->events();
-        $locator        = $application->getServiceManager();
+
+        $controllerLoader = $application->getServiceManager()->get('ControllerLoader');
 
         try {
-            $controller = $locator->get($controllerName);
+            $controller = $controllerLoader->get($controllerName);
         } catch (InstanceException $exception) {
             $error = clone $e;
             $error->setError($application::ERROR_CONTROLLER_NOT_FOUND)

@@ -39,7 +39,7 @@ class Configuration implements ConfigurationInterface
     public function configureServiceManager(ServiceManager $instanceManager)
     {
         foreach ($this->getFactories() as $name => $factory) {
-            $instanceManager->setFactory($name, $factory);
+            $instanceManager->setSource($name, $factory);
         }
 
         foreach ($this->getAliases() as $alias => $nameOrAlias) {
