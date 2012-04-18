@@ -6,23 +6,25 @@ use Zend\ServiceManager\ConfigurationInterface,
     Zend\ServiceManager\ServiceManager,
     Zend\ServiceManager\ServiceManagerAwareInterface;
 
-class DefaultServiceConfiguration implements ConfigurationInterface
+class ServiceManagerConfiguration implements ConfigurationInterface
 {
+
     protected $services = array(
-        'Request'           => 'Zend\Http\PhpEnvironment\Request',
-        'Response'          => 'Zend\Http\PhpEnvironment\Response',
-        'RouteListener'     => 'Zend\Mvc\RouteListener',
-        'DispatchListener'  => 'Zend\Mvc\DispatchListener'
+        'Request'                      => 'Zend\Http\PhpEnvironment\Request',
+        'Response'                     => 'Zend\Http\PhpEnvironment\Response',
+        'RouteListener'                => 'Zend\Mvc\RouteListener',
+        'DispatchListener'             => 'Zend\Mvc\DispatchListener'
     );
 
     protected $factories = array(
-        'EventManager'           => 'Zend\Mvc\Service\EventManagerFactory',
-        'ModuleManager'          => 'Zend\Mvc\Service\ModuleManagerFactory',
-        'Configuration'          => 'Zend\Mvc\Service\ConfigurationFactory',
-        'Router'                 => 'Zend\Mvc\Service\RouterFactory',
-        'ControllerPluginLoader' => 'Zend\Mvc\Service\ControllerPluginLoaderFactory',
-        'ControllerPluginBroker' => 'Zend\Mvc\Service\ControllerPluginBrokerFactory',
-        'Application'            => 'Zend\Mvc\Service\ApplicationFactory',
+        'EventManager'                 => 'Zend\Mvc\Service\EventManagerFactory',
+        'ModuleManager'                => 'Zend\Mvc\Service\ModuleManagerFactory',
+        'Configuration'                => 'Zend\Mvc\Service\ConfigurationFactory',
+        'Router'                       => 'Zend\Mvc\Service\RouterFactory',
+        'ControllerPluginLoader'       => 'Zend\Mvc\Service\ControllerPluginLoaderFactory',
+        'ControllerPluginBroker'       => 'Zend\Mvc\Service\ControllerPluginBrokerFactory',
+        'Application'                  => 'Zend\Mvc\Service\ApplicationFactory',
+        'DependencyInjector'           => 'Zend\Mvc\Service\DiFactory',
 
         // view related stuffs
         'View'                         => 'Zend\Mvc\Service\ViewFactory',
@@ -38,18 +40,46 @@ class DefaultServiceConfiguration implements ConfigurationInterface
     );
 
     protected $abstractFactories = array(
-        'Zend\Mvc\Service\ControllerLoaderFactory',
+        'ControllerLoader'             => 'Zend\Mvc\Service\ControllerLoaderFactory',
     );
 
     protected $aliases = array(
-        'EM'     => 'EventManager',
+        'EM'                                => 'EventManager',
+        'Zend\EventManager\EventCollection' => 'EventManager',
+
         'MM'     => 'ModuleManager',
         'Config' => 'Configuration',
+        'Di'     => 'DependencyInjector'
+
     );
 
     protected $shared = array(
         'EventManager' => false
     );
+
+    public function __construct(array $configuration = array())
+    {
+        if (isset($configuration['services'])) {
+            $this->services = array_merge($this->services, $configuration['services']);
+        }
+
+        if (isset($configuration['factories'])) {
+            $this->factories = array_merge($this->factories, $configuration['factories']);
+        }
+
+        if (isset($configuration['abstract_factories'])) {
+            $this->abstractFactories = array_merge($this->abstractFactories, $configuration['abstract_factories']);
+        }
+
+        if (isset($configuration['aliases'])) {
+            $this->aliases = array_merge($this->aliases, $configuration['aliases']);
+        }
+
+        if (isset($configuration['shared'])) {
+            $this->shared = array_merge($this->shared, $configuration['shared']);
+        }
+
+    }
 
     public function configureServiceManager(ServiceManager $serviceManager)
     {
@@ -58,11 +88,11 @@ class DefaultServiceConfiguration implements ConfigurationInterface
         }
 
         foreach ($this->factories as $name => $factoryClass) {
-            $serviceManager->setSource($name, new $factoryClass);
+            $serviceManager->setSource($name, $factoryClass);
         }
 
         foreach ($this->abstractFactories as $factoryClass) {
-            $serviceManager->addAbstractSource(new $factoryClass);
+            $serviceManager->addAbstractSource($factoryClass);
         }
 
         foreach ($this->aliases as $name => $service) {

@@ -5,7 +5,7 @@ namespace Zend\Mvc\Service;
 use Zend\ServiceManager\AbstractFactoryInterface,
     Zend\ServiceManager\ServiceManager,
     Zend\ServiceManager\ServiceManagerAwareInterface,
-    Zend\EventManager\EventManagerAware,
+    Zend\ServiceManager\Di\DiInitializer,
     Zend\Loader\Pluggable,
     Zend\View\View;
 
@@ -16,13 +16,9 @@ class ControllerLoaderFactory implements AbstractFactoryInterface
         $controllerLoader = $serviceManager->createScopedServiceManager();
         $configuration = $serviceManager->get('Configuration');
         foreach ($configuration->controllers as $name => $controller) {
-            $controllerLoader->setSource($name, $controller);
+            $controllerLoader->setInvokable($name, $controller);
         }
-        $controllerLoader->addInitializer(function ($instance) use ($serviceManager) {
-            if ($instance instanceof EventManagerAware) {
-                $instance->setEventManager($serviceManager->get('EventManager'));
-            }
-        });
+        $controllerLoader->addInitializer(new DiInitializer($serviceManager->get('Di'), $serviceManager));
         $controllerLoader->addInitializer(function ($instance) use ($serviceManager) {
             if ($instance instanceof Pluggable) {
                 $instance->setBroker($serviceManager->get('ControllerPluginBroker'));

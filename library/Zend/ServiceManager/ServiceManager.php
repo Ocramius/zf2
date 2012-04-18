@@ -13,6 +13,11 @@ class ServiceManager
     protected $allowOverride = false;
 
     /**
+     * @var array
+     */
+    protected $invokables = array();
+
+    /**
      * @var string|callable|Closure|InstanceFactoryInterface[]
      */
     protected $sources = array();
@@ -72,6 +77,19 @@ class ServiceManager
         $this->allowOverride = (bool) $allowOverride;
     }
 
+    public function setInvokable($name, $invokable, $shared = true)
+    {
+        $name = $this->canonicalizeName($name);
+
+        if ($this->allowOverride === false && $this->has($name)) {
+            throw new Exception\DuplicateServiceNameException(
+                'A service by this name or alias already exists and cannot be overridden, please use an alternate name.'
+            );
+        }
+        $this->invokables[$name] = $invokable;
+        $this->shared[$name] = $shared;
+    }
+
     /**
      * @param $name
      * @param $factory
@@ -106,7 +124,7 @@ class ServiceManager
 
     public function addInitializer($initializer)
     {
-        if (!is_callable($initializer)) {
+        if (!is_callable($initializer) && !$initializer instanceof InitializerInterface) {
             throw new Exception\InvalidArgumentException('$initializer should be callable.');
         }
         $this->initializers[] = $initializer;
@@ -204,14 +222,21 @@ class ServiceManager
 
         $name = $this->canonicalizeName($name);
 
-        if (isset($this->sources[$name])) {
+        if (isset($this->invokables[$name])) {
+            $invokable = $this->invokables[$name];
+            $instance = new $invokable;
+        }
+
+        if (!$instance && isset($this->sources[$name])) {
             $source = $this->sources[$name];
+            if (is_string($source) && class_exists($source, true)) {
+                $source = new $source;
+                $this->sources[$name] = $source;
+            }
             if ($source instanceof FactoryInterface) {
                 $instance = $this->createServiceViaCallback(array($source, 'createService'), $name);
             } elseif (is_callable($source)) {
                 $instance = $this->createServiceViaCallback($source, $name);
-            } elseif (is_string($source) && class_exists($source, true)) {
-                $instance = new $source;
             } else {
                 throw new Exception\InvalidFactoryException(sprintf(
                     'While attempting to create %s%s an invalid factory was registered for this instance type.',
@@ -222,7 +247,11 @@ class ServiceManager
         }
 
         if (!$instance && !empty($this->abstractSources)) {
-            foreach ($this->abstractSources as $abstractSource) {
+            foreach ($this->abstractSources as $index => $abstractSource) {
+                // support factories as strings
+                if (is_string($abstractSource)) {
+                    $this->abstractSources[$index] = $abstractSource = new $abstractSource;
+                }
                 if ($abstractSource instanceof AbstractFactoryInterface) {
                     $instance = $this->createServiceViaCallback(array($abstractSource, 'createService'), $name);
                 } elseif (is_callable($abstractSource)) {
@@ -271,7 +300,12 @@ class ServiceManager
     {
         $nameOrAlias = $this->canonicalizeName($nameOrAlias);
 
-        return (isset($this->sources[$nameOrAlias]) || isset($this->aliases[$nameOrAlias]) || isset($this->instances[$nameOrAlias]));
+        return (
+            isset($this->invokables[$nameOrAlias])
+            || isset($this->sources[$nameOrAlias])
+            || isset($this->aliases[$nameOrAlias])
+            || isset($this->instances[$nameOrAlias])
+        );
     }
 
     public function setAlias($alias, $nameOrAlias)

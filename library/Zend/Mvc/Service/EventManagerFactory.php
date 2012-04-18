@@ -10,17 +10,14 @@ use Zend\ServiceManager\FactoryInterface,
 
 class EventManagerFactory implements FactoryInterface
 {
-    protected $sharedEventManager = null;
-
-    public function __construct(SharedEventCollection $sharedEventCollection = null)
-    {
-        $this->sharedEventManager = ($sharedEventCollection) ?: new SharedEventManager;
-    }
-
     public function createService(ServiceManager $serviceManager)
     {
+        static $sharedEventManager = null;
+        if (!$sharedEventManager) {
+            $sharedEventManager = new SharedEventManager();
+        }
         $em = new EventManager();
-        $em->setSharedCollections($this->sharedEventManager);
+        $em->setSharedCollections($sharedEventManager);
         return $em;
     }
 }

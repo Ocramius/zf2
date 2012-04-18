@@ -12,7 +12,7 @@ class ModuleManagerFactory implements FactoryInterface
 {
     public function createService(ServiceManager $serviceManager)
     {
-        $configuration = $serviceManager->get('ModuleManagerConfiguration');
+        $configuration = $serviceManager->get('ApplicationConfiguration');
         $listenerOptions  = new ListenerOptions($configuration['module_listener_options']);
         $defaultListeners = new DefaultListenerAggregate($listenerOptions);
         $defaultListeners->getConfigListener()->addConfigGlobPath("config/autoload/{,*.}{global,local}.config.php");

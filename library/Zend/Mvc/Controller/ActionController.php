@@ -2,7 +2,8 @@
 
 namespace Zend\Mvc\Controller;
 
-use Zend\Di\Locator,
+use Zend\ServiceManager\ServiceManager,
+    Zend\ServiceManager\ServiceManagerAwareInterface,
     Zend\EventManager\EventCollection,
     Zend\EventManager\EventDescription as Event,
     Zend\EventManager\EventManager,
@@ -22,14 +23,14 @@ use Zend\Di\Locator,
 /**
  * Basic action controller
  */
-abstract class ActionController implements Dispatchable, EventManagerAware, InjectApplicationEvent, LocatorAware, Pluggable
+abstract class ActionController implements Dispatchable, EventManagerAware, InjectApplicationEvent, Pluggable, ServiceManagerAwareInterface
 {
     //use \Zend\EventManager\ProvidesEvents;
 
     protected $broker;
     protected $event;
     protected $events;
-    protected $locator;
+    protected $serviceManager;
     protected $request;
     protected $response;
 
@@ -221,9 +222,9 @@ abstract class ActionController implements Dispatchable, EventManagerAware, Inje
      * @param  Locator $locator
      * @return void
      */
-    public function setLocator(Locator $locator)
+    public function setServiceManager(ServiceManager $locator)
     {
-        $this->locator = $locator;
+        $this->serviceManager = $locator;
     }
 
     /**
@@ -231,9 +232,9 @@ abstract class ActionController implements Dispatchable, EventManagerAware, Inje
      *
      * @return Locator
      */
-    public function getLocator()
+    public function getServiceManager()
     {
-        return $this->locator;
+        return $this->serviceManager;
     }
 
     /**
