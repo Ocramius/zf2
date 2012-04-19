@@ -4,50 +4,67 @@ namespace Zend\ServiceManager;
 
 class Configuration implements ConfigurationInterface
 {
-    protected $config = null;
+    protected $configuration = array();
 
-    public function __construct($config = null)
+    public function __construct($configuration = array())
     {
-        $this->config = $config;
+        $this->configuration = $configuration;
     }
 
     public function getFactories()
     {
-        return array();
+        return (isset($this->configuration['factories'])) ? $this->configuration['factories'] : array();
     }
 
     public function getAbstractFactories()
     {
-        return array();
+        return (isset($this->configuration['abstract_factories'])) ? $this->configuration['abstract_factories'] : array();
+    }
+
+    public function getInvokables()
+    {
+        return (isset($this->configuration['invokables'])) ? $this->configuration['invokables'] : array();
     }
 
     public function getServices()
     {
-        return array();
+        return (isset($this->configuration['services'])) ? $this->configuration['services'] : array();
     }
 
     public function getAliases()
     {
-        return array();
+        return (isset($this->configuration['aliases'])) ? $this->configuration['aliases'] : array();
     }
 
     public function getShared()
     {
-        return array();
+        return (isset($this->configuration['shared'])) ? $this->configuration['shared'] : array();
     }
 
-    public function configureServiceManager(ServiceManager $instanceManager)
+    public function configureServiceManager(ServiceManager $serviceManager)
     {
         foreach ($this->getFactories() as $name => $factory) {
-            $instanceManager->setSource($name, $factory);
+            $serviceManager->setSource($name, $factory);
+        }
+
+        foreach ($this->getAbstractFactories() as $factory) {
+            $serviceManager->addAbstractSource($factory);
+        }
+
+        foreach ($this->getInvokables() as $name => $invokable) {
+            $serviceManager->setInvokable($name, $invokable);
+        }
+
+        foreach ($this->getServices() as $name => $service) {
+            $serviceManager->set($name, $service);
         }
 
         foreach ($this->getAliases() as $alias => $nameOrAlias) {
-            $instanceManager->setAlias($alias, $nameOrAlias);
+            $serviceManager->setAlias($alias, $nameOrAlias);
         }
 
         foreach ($this->getShared() as $name => $isShared) {
-            $instanceManager->setShared($name, $isShared);
+            $serviceManager->setShared($name, $isShared);
         }
     }
 

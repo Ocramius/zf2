@@ -6,6 +6,7 @@ use Zend\ServiceManager\FactoryInterface,
     Zend\ServiceManager\ServiceManager,
     Zend\Module\Listener\ListenerOptions,
     Zend\Module\Listener\DefaultListenerAggregate,
+    Zend\Module\ModuleEvent,
     Zend\Module\Manager as ModuleManager;
 
 class ModuleManagerFactory implements FactoryInterface
@@ -18,6 +19,9 @@ class ModuleManagerFactory implements FactoryInterface
         $defaultListeners->getConfigListener()->addConfigGlobPath("config/autoload/{,*.}{global,local}.config.php");
 
         $moduleManager = new ModuleManager($configuration['modules'], $serviceManager->get('EventManager'));
+        $moduleEvent = new ModuleEvent;
+        $moduleEvent->setParam('ServiceManager', $serviceManager);
+        $moduleManager->setEvent($moduleEvent);
         $moduleManager->events()->attachAggregate($defaultListeners);
         return $moduleManager;
     }

@@ -171,41 +171,44 @@ class ServiceManager
     /**
      * Retrieve a registered instance
      *
-     * @param  string $name
+     * @param  string $cName
      * @param  array $params
      * @return mixed
      */
     public function get($name)
     {
-        $name = $this->canonicalizeName($name);
+        if (is_array($name)) {
+            list($cName, $rName) = $name;
+        } else {
+            $cName = $this->canonicalizeName($name);;
+            $rName = $name;
+        }
 
-        $requestedName = $name;
-
-        if ($this->hasAlias($name)) {
+        if ($this->hasAlias($cName)) {
             do {
-                $name = $this->aliases[$name];
-            } while ($this->hasAlias($name));
+                $cName = $this->aliases[$cName];
+            } while ($this->hasAlias($cName));
         }
 
         $instance = null;
 
-        if (isset($this->instances[$name])) {
-            $instance = $this->instances[$name];
+        if (isset($this->instances[$cName])) {
+            $instance = $this->instances[$cName];
         }
 
         if (!$instance) {
-            $instance = $this->create(array($name, $requestedName));
+            $instance = $this->create(array($cName, $rName));
         }
 
-        if (isset($this->shared[$name]) && $this->shared[$name] === true) {
-            $this->instances[$name] = $instance;
+        if (isset($this->shared[$cName]) && $this->shared[$cName] === true) {
+            $this->instances[$cName] = $instance;
         }
 
         return $instance;
     }
 
     /**
-     * @param $name
+     * @param $cName
      * @return false|object
      * @throws Exception\InvalidServiceException
      * @throws Exception\InstanceNotCreatedException
@@ -214,34 +217,36 @@ class ServiceManager
     public function create($name)
     {
         $instance = false;
-        $requestedName = null;
+        $rName = null;
 
         if (is_array($name)) {
-            list($name, $requestedName) = $name;
+            list($cName, $rName) = $name;
+        } else {
+            $cName = $name;
         }
 
-        $name = $this->canonicalizeName($name);
+        $cName = $this->canonicalizeName($cName);
 
-        if (isset($this->invokables[$name])) {
-            $invokable = $this->invokables[$name];
+        if (isset($this->invokables[$cName])) {
+            $invokable = $this->invokables[$cName];
             $instance = new $invokable;
         }
 
-        if (!$instance && isset($this->sources[$name])) {
-            $source = $this->sources[$name];
+        if (!$instance && isset($this->sources[$cName])) {
+            $source = $this->sources[$cName];
             if (is_string($source) && class_exists($source, true)) {
                 $source = new $source;
-                $this->sources[$name] = $source;
+                $this->sources[$cName] = $source;
             }
             if ($source instanceof FactoryInterface) {
-                $instance = $this->createServiceViaCallback(array($source, 'createService'), $name);
+                $instance = $this->createServiceViaCallback(array($source, 'createService'), $cName, $rName);
             } elseif (is_callable($source)) {
-                $instance = $this->createServiceViaCallback($source, $name);
+                $instance = $this->createServiceViaCallback($source, $cName, $rName);
             } else {
                 throw new Exception\InvalidFactoryException(sprintf(
                     'While attempting to create %s%s an invalid factory was registered for this instance type.',
-                    $name,
-                    ($requestedName ? '(alias: ' . $requestedName . ')' : '')
+                    $cName,
+                    ($rName ? '(alias: ' . $rName . ')' : '')
                 ));
             }
         }
@@ -253,9 +258,9 @@ class ServiceManager
                     $this->abstractSources[$index] = $abstractSource = new $abstractSource;
                 }
                 if ($abstractSource instanceof AbstractFactoryInterface) {
-                    $instance = $this->createServiceViaCallback(array($abstractSource, 'createService'), $name);
+                    $instance = $this->createServiceViaCallback(array($abstractSource, 'createServiceWithName'), $cName, $rName);
                 } elseif (is_callable($abstractSource)) {
-                    $instance = $this->createServiceViaCallback($abstractSource, $name);
+                    $instance = $this->createServiceViaCallback($abstractSource, $cName, $rName);
                 }
                 if (is_object($instance)) {
                     break;
@@ -264,8 +269,8 @@ class ServiceManager
             if (!$instance) {
                 throw new Exception\InstanceNotCreatedException(sprintf(
                     'While attempting to create %s%s an abstract factory could not produce a valid instance.',
-                    $name,
-                    ($requestedName ? '(alias: ' . $requestedName . ')' : '')
+                    $cName,
+                    ($rName ? '(alias: ' . $rName . ')' : '')
                 ));
             }
         }
@@ -273,15 +278,15 @@ class ServiceManager
         if (!$instance && $this->peeringServiceManagers) {
             foreach ($this->peeringServiceManagers as $peeringServiceManager) {
                 $peeringServiceManager->createThrowException = false;
-                $instance = $peeringServiceManager->get($requestedName ?: $name);
+                $instance = $peeringServiceManager->get($rName ?: $cName);
             }
         }
 
         if ($this->createThrowException == true && $instance === false) {
             throw new Exception\InvalidServiceException(sprintf(
                 'No valid instance was found for %s%s',
-                $name,
-                ($requestedName ? '(alias: ' . $requestedName . ')' : '')
+                $cName,
+                ($rName ? '(alias: ' . $rName . ')' : '')
             ));
         }
 
@@ -355,7 +360,7 @@ class ServiceManager
 
     protected function canonicalizeName($name)
     {
-        return strtolower(str_replace(array('-', '_', ' '), '', $name));
+        return strtolower(str_replace(array('-', '_', ' ', '\\', '/'), '', $name));
     }
 
     /**
@@ -364,21 +369,21 @@ class ServiceManager
      * @return object
      * @throws \Exception
      */
-    protected function createServiceViaCallback($callable, $name)
+    protected function createServiceViaCallback($callable, $cName, $rName)
     {
         static $circularDependencyResolver = array();
 
-        if (isset($circularDependencyResolver[spl_object_hash($this) . '-' . $name])) {
+        if (isset($circularDependencyResolver[spl_object_hash($this) . '-' . $cName])) {
             $circularDependencyResolver = array();
             throw new Exception\CircularDependencyException('Circular dependency for LazyServiceLoader was found for instance ' . $name);
         }
 
-        $circularDependencyResolver[spl_object_hash($this) . '-' . $name] = true;
-        $instance = call_user_func($callable, $this, $name);
+        $circularDependencyResolver[spl_object_hash($this) . '-' . $cName] = true;
+        $instance = call_user_func($callable, $this, $cName, $rName);
         if ($instance === null) {
             throw new Exception\InstanceNotCreatedException('The factory was called but did not return an instance.');
         }
-        unset($circularDependencyResolver[spl_object_hash($this) . '-' . $name]);
+        unset($circularDependencyResolver[spl_object_hash($this) . '-' . $cName]);
 
         return $instance;
     }

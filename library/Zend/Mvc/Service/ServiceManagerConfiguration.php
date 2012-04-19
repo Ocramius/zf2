@@ -25,6 +25,7 @@ class ServiceManagerConfiguration implements ConfigurationInterface
         'ControllerPluginBroker'       => 'Zend\Mvc\Service\ControllerPluginBrokerFactory',
         'Application'                  => 'Zend\Mvc\Service\ApplicationFactory',
         'DependencyInjector'           => 'Zend\Mvc\Service\DiFactory',
+        'ControllerLoader'             => 'Zend\Mvc\Service\ControllerLoaderFactory',
 
         // view related stuffs
         'View'                         => 'Zend\Mvc\Service\ViewFactory',
@@ -40,7 +41,7 @@ class ServiceManagerConfiguration implements ConfigurationInterface
     );
 
     protected $abstractFactories = array(
-        'ControllerLoader'             => 'Zend\Mvc\Service\ControllerLoaderFactory',
+
     );
 
     protected $aliases = array(
@@ -49,8 +50,7 @@ class ServiceManagerConfiguration implements ConfigurationInterface
 
         'MM'     => 'ModuleManager',
         'Config' => 'Configuration',
-        'Di'     => 'DependencyInjector'
-
+        'Di'     => 'DependencyInjector',
     );
 
     protected $shared = array(
@@ -108,6 +108,9 @@ class ServiceManagerConfiguration implements ConfigurationInterface
                 $instance->setServiceManager($instance);
             }
         });
+
+        $serviceManager->set('ServiceManager', $serviceManager);
+        $serviceManager->setAlias('Zend\ServiceManager\ServiceManager', 'ServiceManager');
     }
 
 }

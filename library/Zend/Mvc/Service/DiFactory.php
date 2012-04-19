@@ -5,7 +5,8 @@ namespace Zend\Mvc\Service;
 use Zend\ServiceManager\FactoryInterface,
     Zend\ServiceManager\ServiceManager,
     Zend\Di\Di,
-    Zend\Di\Configuration as DiConfiguration;
+    Zend\Di\Configuration as DiConfiguration,
+    Zend\ServiceManager\Di\DiAbstractServiceFactory;
 
 class DiFactory implements FactoryInterface
 {
@@ -19,6 +20,11 @@ class DiFactory implements FactoryInterface
         if (isset($config->di)) {
             $di->configure(new DiConfiguration($config->di));
         }
+
+        // register as abstract factory as well:
+        $serviceManager->addAbstractSource(
+            new DiAbstractServiceFactory($di, DiAbstractServiceFactory::USE_SM_BEFORE_DI)
+        );
 
         return $di;
     }

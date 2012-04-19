@@ -34,6 +34,7 @@ use Zend\Db\Adapter\Driver\ConnectionInterface,
  */
 class Connection implements ConnectionInterface
 {
+
     /**
      * @var Pdo
      */
@@ -74,6 +75,16 @@ class Connection implements ConnectionInterface
     {
         $this->driver = $driver;
         return $this;
+    }
+
+    public function getPdoDriverType()
+    {
+        if (isset($this->connectionParameters['driver'])) {
+            return $this->connectionParameters['driver'];
+        } elseif (isset($this->connectionParameters['dsn'])) {
+            return strstr($this->connectionParameters['dsn'], ':');
+        }
+        throw new \Exception('not enough information is known to get the driver type for this kind of PDO connection');
     }
 
     /**

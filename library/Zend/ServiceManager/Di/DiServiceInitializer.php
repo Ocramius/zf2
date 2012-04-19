@@ -9,21 +9,18 @@ use Zend\ServiceManager\InitializerInterface,
     Zend\Di\Di,
     Zend\Di\Exception\ClassNotFoundException as DiClassNotFoundException;
 
-class DiInitializer extends Di implements InitializerInterface
+class DiServiceInitializer extends Di implements InitializerInterface
 {
 
     protected $di = null;
     protected $diInstanceManagerProxy = null;
     protected $serviceManager = null;
 
-    public function __construct(Di $di, ServiceManager $serviceManager)
+    public function __construct(Di $di, ServiceManager $serviceManager, DiInstanceManagerProxy $diImProxy = null)
     {
         $this->di = $di;
         $this->serviceManager = $serviceManager;
-
-        // since we are using this in a proxy-fashion, localize state
-        $this->definitions = $this->di->definitions;
-        $this->diInstanceManagerProxy = new DiInstanceManagerProxy($di->instanceManager(), $serviceManager);
+        $this->diInstanceManagerProxy = ($diImProxy) ?: new DiInstanceManagerProxy($di->instanceManager(), $serviceManager);
     }
 
     public function initialize($instance)
@@ -38,4 +35,5 @@ class DiInitializer extends Di implements InitializerInterface
             throw $e;
         }
     }
+
 }

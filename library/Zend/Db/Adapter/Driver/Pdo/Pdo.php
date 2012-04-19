@@ -106,7 +106,7 @@ class Pdo implements DriverInterface
      */
     public function getDatabasePlatformName($nameFormat = self::NAME_FORMAT_CAMELCASE)
     {
-        $name = $this->getConnection()->getResource()->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $name = $this->getConnection()->getPdoDriverType();
         if ($nameFormat == self::NAME_FORMAT_CAMELCASE) {
             return ucfirst($name);
         } else {
