@@ -151,7 +151,7 @@ class Compiler
                     throw new \InvalidArgumentException('Invalid instantiator supplied for class: ' . $name);
                 }
             } else {
-                $className = '\\' . ltrim($this->reduceAlias($name), '\\');
+                $className = '\\' . trim(trim($this->reduceAlias($name)), '\\');
 
                 if (count($instantiatorParams)) {
                     $creation = sprintf('$object = new %s(%s);', $className, implode(', ', $instantiatorParams));
