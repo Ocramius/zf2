@@ -151,7 +151,8 @@ class Compiler
                     throw new \InvalidArgumentException('Invalid instantiator supplied for class: ' . $name);
                 }
             } else {
-                $className = '\\' . trim($this->reduceAlias($name), '\\');
+                $className = $this->reduceAlias($name);
+                $className = '\\' . trim($className, '\\');
 
                 if (count($instantiatorParams)) {
                     $creation = sprintf('$object = new %s(%s);', $className, implode(', ', $instantiatorParams));
@@ -159,6 +160,9 @@ class Compiler
                     $creation = sprintf('$object = new %s();', $className);
                 }
             }
+            $className = ltrim($className, '\\');
+            $creation .= "\n" . 'if ($isShared) {' . "\n" . $indent
+                . '$this->instanceManager->addSharedInstance($object, \'' . $className . '\');' . "\n" . '}';
 
 
             // Create method call code
@@ -295,6 +299,7 @@ class Compiler
         if (isset($this->aliases[$name])) {
             return $this->reduceAlias($this->aliases[$name]);
         }
+
         return $name;
     }
 
