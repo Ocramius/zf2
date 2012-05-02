@@ -248,15 +248,49 @@ class Di implements DependencyInjectionInterface
         $instanceManager = $this->instanceManager();
 
         if ($injectionMethods || $supertypeInjectionMethods) {
-            foreach ($injectionMethods as $injectionMethod => $methodIsRequired) {
-                if ($injectionMethod !== '__construct'){
-                    $this->resolveAndCallInjectionMethodForInstance($instance, $injectionMethod, $params, $instanceAlias, $methodIsRequired, $instanceClass);
-                }
-            }
-            foreach ($supertypeInjectionMethods as $supertype => $supertypeInjectionMethod) {
+            // supertype injections should be handled before as overrides may happen later
+            // @todo verify the effective order of supertypes. This array_reverse should be removed and order guaranteed
+            $handledInjections = array();
+
+            foreach (array_reverse($supertypeInjectionMethods) as $supertype => $supertypeInjectionMethod) {
                 foreach ($supertypeInjectionMethod as $injectionMethod => $methodIsRequired) {
                     if ($injectionMethod !== '__construct') {
-                        $this->resolveAndCallInjectionMethodForInstance($instance, $injectionMethod, $params, $instanceAlias, $methodIsRequired, $supertype);
+                        $injectionResult = $this->resolveAndCallInjectionMethodForInstance(
+                            $instance,
+                            $injectionMethod,
+                            $params,
+                            $instanceAlias,
+                            $methodIsRequired,
+                            $supertype
+                        );
+
+                        if ($injectionResult) {
+                            if (!isset($handledInjections[$injectionMethod])) {
+                                $handledInjections[$injectionMethod] = array();
+                            }
+
+                            $handledInjections[$injectionMethod][] = $injectionResult;
+                        }
+                    }
+                }
+            }
+            foreach ($injectionMethods as $injectionMethod => $methodIsRequired) {
+                if ($injectionMethod !== '__construct') {
+                    $injectionResult = $this->resolveAndCallInjectionMethodForInstance(
+                        $instance,
+                        $injectionMethod,
+                        $params,
+                        $instanceAlias,
+                        $methodIsRequired,
+                        $instanceClass
+                    );
+
+                    if ($injectionResult) {
+                        if (!isset($handledInjections[$injectionMethod])) {
+                            $handledInjections[$injectionMethod] = array();
+                        }
+
+                        $handledInjections[$injectionMethod][] = $injectionResult;
                     }
                 }
             }
@@ -385,16 +419,33 @@ class Di implements DependencyInjectionInterface
      * @param string $method
      * @param array $params
      * @param string $alias
+     *
+     * @todo must be reworked to resolve and inject on different steps to fix tests about duplicate injections
      */
     protected function resolveAndCallInjectionMethodForInstance($instance, $method, $params, $alias, $methodIsRequired, $methodClass = null)
     {
         $methodClass = ($methodClass) ?: get_class($instance);
         $callParameters = $this->resolveMethodParameters($methodClass, $method, $params, $alias, $methodIsRequired);
+
         if ($callParameters == false) {
             return;
         }
+
+        if (isset($handledInjections[$method])) {
+            foreach ($handledInjections[$method] as $handledCallParameters) {
+                foreach ($handledCallParameters as $key => $handledCallParameter) {
+                    if ($callParameters[$key] !== $handledCallParameter) {
+                        continue;
+                    }
+
+                    return; // if a call with the same parameters is found, return without invoking the method
+                }
+            }
+        }
+
         if ($callParameters !== array_fill(0, count($callParameters), null)) {
             call_user_func_array(array($instance, $method), $callParameters);
+            return $callParameters;
         }
     }
 
