@@ -200,44 +200,65 @@ class Dumper
         }
 
         if ($injectionMethods || $supertypeInjectionMethods) {
-            foreach ($injectionMethods as $injectionMethod => $methodIsRequired) {
-                if ($injectionMethod !== '__construct') {
-                    // $params forced to array() as we don't compile definitions for newInstanceWithParams
-                    $injection = $this->resolveMethodParameters(
-                        $class,
-                        $injectionMethod,
-                        array(),
-                        false,
-                        $alias,
-                        $methodIsRequired
-                    );
-                    if ($injection) {
-                        $injectedDefinitions['injections'][] = array(
-                            'name' => $injectionMethod,
-                            'parameters' => $injection,
-                        );
-                    }
-                }
-            }
+            // supertype injections should be handled before as overrides may happen later
+            // @todo verify the effective order of supertypes. This array_reverse should be removed and order guaranteed
+            $handledInjections = array();
+
             foreach ($supertypeInjectionMethods as $supertype => $supertypeInjectionMethod) {
                 foreach ($supertypeInjectionMethod as $injectionMethod => $methodIsRequired) {
 
                     if ($injectionMethod !== '__construct') {
                         // $params forced to array() as we don't compile definitions for newInstanceWithParams
-                        $injection = $this->resolveMethodParameters(
+                        $injectionResult = $this->handleInjectionMethodForInstance(
                             $supertype,
                             $injectionMethod,
                             array(),
-                            false,
                             $alias,
-                            $methodIsRequired
+                            $methodIsRequired,
+                            $supertype,
+                            $handledInjections
                         );
-                        if ($injection) {
+
+                        if ($injectionResult) {
                             $injectedDefinitions['injections'][] = array(
                                 'name' => $injectionMethod,
-                                'parameters' => $injection,
+                                'parameters' => $injectionResult,
                             );
+
+                            if (!isset($handledInjections[$injectionMethod])) {
+                                $handledInjections[$injectionMethod] = array();
+                            }
+
+                            $handledInjections[$injectionMethod][] = $injectionResult;
                         }
+                    }
+                }
+            }
+
+            foreach ($injectionMethods as $injectionMethod => $methodIsRequired) {
+                if ($injectionMethod !== '__construct') {
+                    // $params forced to array() as we don't compile definitions for newInstanceWithParams
+                    $injectionResult = $this->handleInjectionMethodForInstance(
+                        $class,
+                        $injectionMethod,
+                        array(),
+                        $alias,
+                        $methodIsRequired,
+                        $class,
+                        $handledInjections
+                    );
+
+                    if ($injectionResult) {
+                        $injectedDefinitions['injections'][] = array(
+                            'name' => $injectionMethod,
+                            'parameters' => $injectionResult,
+                        );
+
+                        if (!isset($handledInjections[$injectionMethod])) {
+                            $handledInjections[$injectionMethod] = array();
+                        }
+
+                        $handledInjections[$injectionMethod][] = $injectionResult;
                     }
                 }
             }
@@ -353,6 +374,43 @@ class Dumper
         }
 
         return $visited;
+    }
+
+
+    /**
+     * This parameter will handle any injection methods and resolution of
+     * dependencies for such methods
+     *
+     * @param object $object
+     * @param string $method
+     * @param array $params
+     * @param string $alias
+     */
+    protected function handleInjectionMethodForInstance($instance, $method, $params, $alias, $methodIsRequired, $methodClass = null, $handledInjections = array())
+    {
+        $methodClass = ($methodClass) ?: get_class($instance);
+        // @todo make sure to resolve the supertypes for both the object & definition
+        $callParameters = $this->resolveMethodParameters($methodClass, $method, $params, false, $alias, $methodIsRequired);
+
+        if ($callParameters == false) {
+            return;
+        }
+
+        if (isset($handledInjections[$method])) {
+            foreach ($handledInjections[$method] as $handledCallParameters) {
+                foreach ($handledCallParameters as $key => $handledCallParameter) {
+                    if ($callParameters[$key] !== $handledCallParameter) {
+                        continue;
+                    }
+
+                    return; // if a call with the same parameters is found, return without invoking the method
+                }
+            }
+        }
+
+        if ($callParameters !== array_fill(0, count($callParameters), null)) {
+            return $callParameters;
+        }
     }
 
     /**
