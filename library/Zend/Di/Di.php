@@ -405,9 +405,11 @@ class Di implements DependencyInjectionInterface
         }
 
         $callParameters = array();
+
         if ($this->definitions->hasMethod($class, $method)) {
             $callParameters = $this->resolveMethodParameters($class, $method, $params, $alias, true, true);
         }
+
         return call_user_func_array($callback, $callParameters);
     }
 
