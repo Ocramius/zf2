@@ -151,7 +151,7 @@ class Compiler
                     throw new \InvalidArgumentException('Invalid instantiator supplied for class: ' . $name);
                 }
             } else {
-                $className = '\\' . trim(trim($this->reduceAlias($name)), '\\');
+                $className = '\\' . trim($this->reduceAlias($name), '\\');
 
                 if (count($instantiatorParams)) {
                     $creation = sprintf('$object = new %s(%s);', $className, implode(', ', $instantiatorParams));
@@ -160,7 +160,12 @@ class Compiler
                 }
             }
 
+
             // Create method call code
+
+            $className = ltrim($className, '\\');
+            $creation .= "\n" . 'if ($isShared) {' . "\n" . $indent
+                . '$this->instanceManager->addSharedInstance($object, \'' . $className . '\');' . "\n" . '}';
             $methods = '';
 
             foreach ($data['injections'] as $methodData) {
@@ -195,20 +200,21 @@ class Compiler
             $getterDef = new Generator\MethodGenerator();
             $getterDef
                 ->setName($getter)
+                ->setParameter('isShared')
                 ->setBody($getterBody);
             $getters[] = $getterDef;
 
             // Build case statement and store
             $statement = '';
             $statement .= sprintf("%scase '%s':\n", $indent, $name);
-            $statement .= sprintf("%sreturn \$this->%s();\n", str_repeat($indent, 2), $getter);
+            $statement .= sprintf("%sreturn \$this->%s(%s);\n", str_repeat($indent, 2), $getter, '$isShared');
 
             $caseStatements[] = $statement;
         }
 
         // Build switch statement
         $switch = sprintf(
-            "if (count(%s)) {\n%sreturn parent::newInstance(%s, %s, %s);\n}",
+            "if (%s) {\n%sreturn parent::newInstance(%s, %s, %s);\n}\n",
             '$params',
             $indent,
             '$name',
@@ -219,7 +225,12 @@ class Compiler
             "switch (%s) {\n%s\n", '$name', implode("\n", $caseStatements)
         );
         $switch .= sprintf(
-            "%sdefault:\n%sreturn parent::newInstance(%s, %s);\n", $indent, str_repeat($indent, 2), '$name', '$params'
+            "%sdefault:\n%sreturn parent::newInstance(%s, %s, %s);\n",
+            $indent,
+            str_repeat($indent, 2),
+            '$name',
+            '$params',
+            '$isShared'
         );
         $switch .= "}\n\n";
 
