@@ -357,19 +357,19 @@ class Dumper
 
         // recursively discover dependencies and convert generatedReference and Scalar parameters to array
         foreach ($injectedDefinitions['instantiator']['parameters'] as $key => $parameter) {
-            if ($parameter instanceof Dumper\ReferenceParameter) {
+            if (self::REFERENCE === $parameter['type']) {
                 /* @var $parameter Dumper\ReferenceParameter */
-                $this->doGetInjectedDefinitions($parameter->getReferenceId(), $visited);
+                $this->doGetInjectedDefinitions($parameter['value'], $visited);
             }
-            $visited[$name]['instantiator']['parameters'][$key] = $parameter->toArray();
+            $visited[$name]['instantiator']['parameters'][$key] = $parameter;
         }
         foreach ($injectedDefinitions['injections'] as $method => $methodCall) {
             foreach ($methodCall['parameters'] as $key => $parameter) {
-                if ($parameter instanceof Dumper\ReferenceParameter) {
+                if (self::REFERENCE === $parameter['type']) {
                     /* @var $parameter Dumper\ReferenceParameter */
-                    $this->doGetInjectedDefinitions($parameter->getReferenceId(), $visited);
+                    $this->doGetInjectedDefinitions($parameter['value'], $visited);
                 }
-                $visited[$name]['injections'][$method]['parameters'][$key] = $parameter->toArray();
+                $visited[$name]['injections'][$method]['parameters'][$key] = $parameter;
             }
         }
 
@@ -521,23 +521,35 @@ class Dumper
                         // was an alias provided?
                         $computedParams['required'][$fqParamPos] = array(
                             // @todo check if scalar of reference here?
-                            new Dumper\ReferenceParameter($callTimeUserParams[$name]),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $callTimeUserParams[$name],
+                            ),
                             $im->getClassFromAlias($callTimeCurValue)
                         );
                     } elseif ($this->di->definitions()->hasClass($callTimeUserParams[$name])) {
                         // was a known class provided?
                         $computedParams['required'][$fqParamPos] = array(
-                            new Dumper\ReferenceParameter($callTimeCurValue),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $callTimeCurValue,
+                            ),
                             $callTimeCurValue
                         );
                     } else {
                         // must be a value
-                        $computedParams['value'][$fqParamPos] = new Dumper\ScalarParameter($callTimeCurValue);
+                        $computedParams['value'][$fqParamPos] = array(
+                            'type' => static::SCALAR,
+                            'value' => $callTimeCurValue,
+                        );
                     }
                 } else {
                     // int, float, null, object, etc
                     // @todo scalar param
-                    $computedParams['value'][$fqParamPos] = new Dumper\ScalarParameter($callTimeCurValue);
+                    $computedParams['value'][$fqParamPos] = array(
+                        'type' => static::SCALAR,
+                        'value' => $callTimeCurValue,
+                    );
                 }
                 unset($callTimeCurValue);
                 continue;
@@ -566,13 +578,19 @@ class Dumper
                         is_string($iConfigCurValue)
                         && $type === false
                     ) {
-                        $computedParams['value'][$fqParamPos] = new Dumper\ScalarParameter($iConfigCurValue);
+                        $computedParams['value'][$fqParamPos] = array(
+                            'type' => static::SCALAR,
+                            'value' => $iConfigCurValue,
+                        );
                     } elseif (
                         is_string($iConfigCurValue)
                         && isset($aliases[$iConfigCurValue])
                     ) {
                         $computedParams['required'][$fqParamPos] = array(
-                            new Dumper\ReferenceParameter($iConfig[$thisIndex]['parameters'][$name]),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $iConfig[$thisIndex]['parameters'][$name],
+                            ),
                             $im->getClassFromAlias($iConfigCurValue)
                         );
                     } elseif (
@@ -580,7 +598,10 @@ class Dumper
                         && $this->di->definitions()->hasClass($iConfigCurValue)
                     ) {
                         $computedParams['required'][$fqParamPos] = array(
-                            new Dumper\ReferenceParameter($iConfigCurValue),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $iConfigCurValue,
+                            ),
                             $iConfigCurValue
                         );
                     } elseif (
@@ -599,7 +620,10 @@ class Dumper
                                 . get_class($iConfigCurValue) . '" provided'
                             );
                         }
-                        $computedParams['value'][$fqParamPos] = new Dumper\ScalarParameter($iConfigCurValue);
+                        $computedParams['value'][$fqParamPos] = array(
+                            'type' => static::SCALAR,
+                            'value' => $iConfigCurValue,
+                        );
                     }
                     unset($iConfigCurValue);
                     continue 2;
@@ -625,7 +649,10 @@ class Dumper
                     $pInstanceClass = ($im->hasAlias($pInstance)) ? $im->getClassFromAlias($pInstance) : $pInstance;
                     if ($pInstanceClass === $type || $this->isSubclassOf($pInstanceClass, $type)) {
                         $computedParams['required'][$fqParamPos] = array(
-                            new Dumper\ReferenceParameter($pInstance),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $pInstance,
+                            ),
                             $pInstanceClass
                         );
                         continue 2;
@@ -641,7 +668,10 @@ class Dumper
                     /*if (is_object($pInstance)) {
                         // @todo scalar param - injection should be a reference!
                         throw new \BadMethodCallException('Not implemented yet');
-                        //$computedParams['value'][$fqParamPos] = new Dumper\ScalarParameter($pInstance);
+                        //$computedParams['value'][$fqParamPos] = array(
+                            'type' => static::SCALAR,
+                            'value' => $pInstance,
+                        );
                         continue 2;
                     }*/
 
@@ -649,7 +679,10 @@ class Dumper
                     $pInstanceClass = ($im->hasAlias($pInstance)) ?  $im->getClassFromAlias($pInstance) : $pInstance;
                     if ($pInstanceClass === $type || $this->isSubclassOf($pInstanceClass, $type)) {
                         $computedParams['required'][$fqParamPos] = array(
-                            new Dumper\ReferenceParameter($pInstance),
+                            array(
+                                'type' => static::REFERENCE,
+                                'value' => $pInstance,
+                            ),
                             $pInstanceClass
                         );
                         continue 2;
@@ -663,7 +696,10 @@ class Dumper
 
             if ($type && $isRequired && $methodIsRequired) {
                 $computedParams['required'][$fqParamPos] = array(
-                    new Dumper\ReferenceParameter($type),
+                    array(
+                        'type' => static::REFERENCE,
+                        'value' => $type,
+                    ),
                     $type
                 );
             }
@@ -695,11 +731,17 @@ class Dumper
                 $dConfig = $im->getConfiguration($computedParams['required'][$fqParamPos][0]);
                 if ($dConfig['shared'] === false) {
                     //$resolvedParams[$index] = $computedParams['required'][$fqParamPos][0];
-                    $resolvedParams[$index] = new Dumper\ReferenceParameter($computedParams['required'][$fqParamPos][0]);
+                    $resolvedParams[$index] = array(
+                        'type' => static::REFERENCE,
+                        'value' => $computedParams['required'][$fqParamPos][0],
+                    );
                     //$resolvedParams[$index] = $this->newInstance($computedParams['required'][$fqParamPos][0], $callTimeUserParams, false);
                 } else {
                     //$resolvedParams[$index] = $computedParams['required'][$fqParamPos][0];
-                    $resolvedParams[$index] = new Dumper\ReferenceParameter($computedParams['required'][$fqParamPos][0]);
+                    $resolvedParams[$index] = array(
+                        'type' => static::REFERENCE,
+                        'value' => computedParams['required'][$fqParamPos][0],
+                    );
                     //$resolvedParams[$index] = $this->get($computedParams['required'][$fqParamPos][0], $callTimeUserParams);
                 }*/
 
@@ -719,7 +761,10 @@ class Dumper
                 }
 
             } else {
-                $resolvedParams[$index] = new Dumper\ScalarParameter(null);
+                $resolvedParams[$index] = array(
+                    'type' => static::SCALAR,
+                    'value' => null,
+                );
             }
 
             $index++;
