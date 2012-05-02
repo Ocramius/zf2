@@ -2,11 +2,11 @@
 
 namespace ZendTest\Di;
 
-use Zend\Di\Di,
-    Zend\Di\DefinitionList,
-    Zend\Di\InstanceManager,
-    Zend\Di\Configuration,
-    Zend\Di\Definition;
+use Zend\Di\Di;
+use Zend\Di\DefinitionList;
+use Zend\Di\InstanceManager;
+use Zend\Di\Configuration;
+use Zend\Di\Definition;
 
 
 class DiTest extends \PHPUnit_Framework_TestCase
@@ -592,6 +592,30 @@ class DiTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @group SetterInjection
+     * @group SupertypeResolution
+     */
+    public function testInjectionForSetterInjectionWillNotUseSupertypeWhenChildParamIsExplicitlyDefined()
+    {
+        $di = new Di();
+        // for setter injection, the dependency is not required, thus it must be forced
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\InheritanceClasses\B',
+            array('test' => 'b')
+        );
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\InheritanceClasses\A',
+            array('test' => 'a')
+        );
+
+        $b = $di->get('ZendTest\Di\TestAsset\InheritanceClasses\B');
+        $this->assertEquals('b', $b->test);
+
+        $c = $di->get('ZendTest\Di\TestAsset\InheritanceClasses\C');
+        $this->assertEquals('b', $c->test);
+    }
+
+    /**
      * @group SharedInstance
      */
     public function testMarkingClassAsNotSharedInjectsNewInstanceIntoAllRequestersButDependentsAreShared()
@@ -639,5 +663,69 @@ class DiTest extends \PHPUnit_Framework_TestCase
 
         $b = $di->get('b_alias');
         $this->assertInstanceOf('ZendTest\Di\TestAsset\SetterInjection\A', $b->a);
+    }
+
+    /**
+     * @group SetterInjection
+     * @group SupertypeResolution
+     */
+    public function testSetterInjectionWillNotDuplicateInjectionsForSupertypeDefinition()
+    {
+        $di = new Di();
+
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection',
+            array('a' => 'hi!')
+        );
+        $c = $di->newInstance('ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection');
+        $this->assertSame(1, $c->getInjectionsCount());
+
+        // When the parameters are different, injections should be called first for the parent, then for the child
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjectionParent',
+            array('a' => 'hello!')
+        );
+        $c = $di->newInstance('ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection');
+        $this->assertSame(2, $c->getInjectionsCount());
+    }
+
+    /**
+     * @group SetterInjection
+     * @group SupertypeResolution
+     */
+    public function testSetterInjectionWillNotDuplicateInjectionsForSupertypeDefinitionWithSameParameters()
+    {
+        $di = new Di();
+
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection',
+            array('a' => 'hi!')
+        );
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjectionParent',
+            array('a' => 'hi!')
+        );
+        $c = $di->newInstance('ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection');
+        $this->assertSame(1, $c->getInjectionsCount());
+    }
+
+    /**
+     * @group SetterInjection
+     * @group SupertypeResolution
+     */
+    public function testSetterInjectionWillFirstCallParentSettersThenChildSettersWhenDifferentParametersAreDefined()
+    {
+        $di = new Di();
+
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection',
+            array('a' => 'hi!')
+        );
+        $di->instanceManager()->setParameters(
+            'ZendTest\Di\TestAsset\SetterInjection\DuplicateInjectionParent',
+            array('a' => 'hello!')
+        );
+        $c = $di->newInstance('ZendTest\Di\TestAsset\SetterInjection\DuplicateInjection');
+        $this->assertSame(array('hello!', 'hi!'), $c->injections);
     }
 }
