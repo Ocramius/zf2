@@ -761,10 +761,10 @@ class Dumper
                 }
 
             } else {
-                $resolvedParams[$index] = array(
-                    'type' => static::SCALAR,
-                    'value' => null,
-                );
+                //$resolvedParams[$index] = array(
+                //    'type' => static::SCALAR,
+                //    'value' => null,
+                //);
             }
 
             $index++;
