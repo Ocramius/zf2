@@ -49,3 +49,20 @@ array(
     // 'next_class_or_alias' => array( ... ),
 );
 ```
+Compiler works as following:
+
+```php
+$di = new \Zend\Di\Di();
+// ... configure $di ...
+
+$dumper = new \Zend\Di\Instance\Dumper($di);
+
+$compiler = new \Zend\Di\Instance\Compiler($dumper, $di);
+
+$compiler
+    ->setNamespace('Application')
+    ->setContainerClass('Context')
+    ->setFilename(getcwd() . '/module/Application/Context.php');
+
+$compiler->compile();
+```
