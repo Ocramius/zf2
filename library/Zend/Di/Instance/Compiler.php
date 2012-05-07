@@ -187,16 +187,16 @@ class Compiler
     }
 
     /**
-     * Compiles a Di Definitions to a in a service locator, that extends Zend\Di\Di
+     * Compiles a Di Definitions to a in a service locator, that extends Zend\Di\Di and writes it to disk
      *
      * It uses Zend\Code\Generator\FileGenerator
      *
      * @param bool $write
      * @param string|null $filename
-     * @return FileGenerator
+     * @return void
      * @throws \InvalidArgumentException
      */
-    public function compile($write = true)
+    public function compile()
     {
 
         $indent         = '    ';
@@ -379,11 +379,7 @@ class Compiler
 
         $classFile->setFilename($this->getFilename());
 
-        if ($write) {
-            $classFile->write();
-        }
-
-        return $classFile;
+        $classFile->write();
     }
 
     /**
