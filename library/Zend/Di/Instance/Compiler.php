@@ -20,9 +20,12 @@
 
 namespace Zend\Di\Instance;
 
-use Zend\Di\Di;
-use Zend\Di\Definition\Definition;
-use Zend\Code\Generator;
+use Zend\Di\Di,
+    Zend\Di\Definition\Definition,
+    Zend\Code\Generator\MethodGenerator,
+    Zend\Code\Generator\ParameterGenerator,
+    Zend\Code\Generator\ClassGenerator,
+    Zend\Code\Generator\FileGenerator;
 
 /**
  * Class for generating service locators from Di instances
@@ -34,17 +37,45 @@ use Zend\Code\Generator;
  */
 class Compiler
 {
-    protected $containerClass = 'ApplicationContext';
-
     /**
-     * @var array
+     * @var string
      */
-    protected $instances = array();
+    protected $containerClass = 'ApplicationContext';
 
     /**
      * @var string
      */
     protected $namespace;
+
+    /**
+     * @var string
+     */
+    protected $filename;
+
+    /**
+     * @var MethodGenerator
+     */
+    protected $methodGenerator;
+
+    /**
+     * @var ParameterGenerator
+     */
+    protected $parameterGenerator;
+
+    /**
+     * @var ClassGenerator
+     */
+    protected $classGenerator;
+
+    /**
+     * @var FileGenerator
+     */
+    protected $fileGenerator;
+
+    /**
+     * @var array
+     */
+    protected $instances = array();
 
     /**
      * @var array
@@ -63,6 +94,10 @@ class Compiler
         $this->instances = $dumper->getAllInjectedDefinitions();
         // @todo remove following as the code generator should not know about Di
         $this->aliases = $di->instanceManager()->getAliases();
+        $this->methodGenerator = new MethodGenerator;
+        $this->parameterGenerator = new ParameterGenerator;
+        $this->classGenerator = new ClassGenerator;
+        $this->fileGenerator = new FileGenerator;
     }
 
     /**
@@ -78,6 +113,16 @@ class Compiler
     }
 
     /**
+     * Get the class name for the generated service locator container
+     *
+     * @return string
+     */
+    public function getContainerClass()
+    {
+        return $this->containerClass;
+    }
+
+    /**
      * Set the namespace to use for the generated class file
      *
      * @param  string $namespace
@@ -90,16 +135,70 @@ class Compiler
     }
 
     /**
-     * Construct, configure, and return a PHP classfile code generation object
+     * Get the namespace to use for the generated class file
      *
-     * Creates a Zend\CodeGenerator\Php\PhpFile object that has
-     * created the specified class and service locator methods.
-     *
-     * @param  null|string $filename
-     * @return Generator\PhpFile
+     * @return string
      */
-    public function getCodeGenerator($filename = null)
+    public function getNamespace()
     {
+        return $this->namespace;
+    }
+
+    /**
+     * Set filename to use for the generated class file
+     *
+     * @param string $filename
+     * @return Compiler
+     */
+    public function setFilename($filename)
+    {
+        $this->filename = $filename;
+        return $this;
+    }
+
+    /**
+     * Get filename to use for the generated class file
+     *
+     * @return string
+     */
+    public function getFilename()
+    {
+        return $this->filename;
+    }
+
+    /**
+     * Get class generator
+     *
+     * @return \Zend\Code\Generator\ClassGenerator
+     */
+    public function getClassGenerator()
+    {
+        return $this->classGenerator;
+    }
+
+    /**
+     * Get file generator
+     *
+     * @return FileGenerator
+     */
+    public function getFileGenerator()
+    {
+        return $this->fileGenerator;
+    }
+
+    /**
+     * Compiles a Di Definitions to a in a service locator, that extends Zend\Di\Di and writes it to disk
+     *
+     * It uses Zend\Code\Generator\FileGenerator
+     *
+     * @param bool $write
+     * @param string|null $filename
+     * @return void
+     * @throws \InvalidArgumentException
+     */
+    public function compile()
+    {
+
         $indent         = '    ';
         $caseStatements = array();
         $getters        = array();
@@ -197,10 +296,11 @@ class Compiler
             // End getter body
             $getterBody .= "return \$object;\n";
 
-            $getterDef = new Generator\MethodGenerator();
+            $getterDef = new MethodGenerator();
             $getterDef
                 ->setName($getter)
                 ->setParameter('isShared')
+                ->setVisibility(MethodGenerator::VISIBILITY_PROTECTED)
                 ->setBody($getterBody);
             $getters[] = $getterDef;
 
@@ -235,32 +335,32 @@ class Compiler
         $switch .= "}\n\n";
 
         // Build newInstance() method
-        $nameParam   = new Generator\ParameterGenerator();
+        $nameParam   = new ParameterGenerator();
         $nameParam->setName('name');
 
-        $paramsParam = new Generator\ParameterGenerator();
+        $paramsParam = new ParameterGenerator();
         $paramsParam
             ->setName('params')
             ->setType('array')
             ->setDefaultValue(array());
 
-        $isSharedParam = new Generator\ParameterGenerator();
+        $isSharedParam = new ParameterGenerator();
         $isSharedParam
             ->setName('isShared')
             ->setDefaultValue(true);
 
-        $get = new Generator\MethodGenerator();
+        $get = new MethodGenerator();
         $get
             ->setName('newInstance')
             ->setParameters(array(
-                $nameParam,
-                $paramsParam,
-                $isSharedParam,
-            ))
+            $nameParam,
+            $paramsParam,
+            $isSharedParam,
+        ))
             ->setBody($switch);
 
         // Create class code generation object
-        $container = new Generator\ClassGenerator();
+        $container = $this->getClassGenerator();
         $container
             ->setName($this->containerClass)
             ->setExtendedClass('Di')
@@ -268,7 +368,7 @@ class Compiler
             ->setMethods($getters);
 
         // Create PHP file code generation object
-        $classFile = new Generator\FileGenerator();
+        $classFile = $this->getFileGenerator();
 
         $classFile->setClass($container);
         $classFile->setUse('Zend\Di\Di');
@@ -277,11 +377,9 @@ class Compiler
             $classFile->setNamespace($this->namespace);
         }
 
-        if (null !== $filename) {
-            $classFile->setFilename($filename);
-        }
+        $classFile->setFilename($this->getFilename());
 
-        return $classFile;
+        $classFile->write();
     }
 
     /**
@@ -299,7 +397,7 @@ class Compiler
     }
 
     /**
-     * Normalize an alias to a getter method name
+     * Normalize an alias to a new instance method name
      *
      * @param  string $alias
      * @return string
@@ -307,7 +405,7 @@ class Compiler
     protected function normalizeAlias($alias)
     {
         $normalized = preg_replace('/[^a-zA-Z0-9]/', ' ', $alias);
-        $normalized = 'get' . str_replace(' ', '', ucwords($normalized));
+        $normalized = 'new' . str_replace(' ', '', ucwords($normalized));
         return $normalized;
     }
 
@@ -324,7 +422,7 @@ class Compiler
 
         foreach ($params as $parameter) {
             if (Dumper::REFERENCE === $parameter['type']) {
-                $normalizedParameters[] = sprintf('$this->get(%s)', var_export($parameter['value'], true));
+                $normalizedParameters[] = sprintf('$this->get(%s)', '\'' . $parameter['value'] . '\'');
             } else {
                 $normalizedParameters[] = var_export($parameter['value'], true);
             }
@@ -332,4 +430,5 @@ class Compiler
 
         return $normalizedParameters;
     }
+
 }
