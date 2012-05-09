@@ -1,12 +1,10 @@
 #!/bin/bash
-travisdir=$(dirname $(readlink /proc/$$/fd/255))
-testdir="$travisdir/../tests"
-tested=$1
-result=0
+travisDir=$(dirname $(readlink /proc/$$/fd/255))
+testDir="$travisDir/../tests"
+logFilePrefix=${1/\//-}
+outputFile="$travisDir/log/$logFilePrefix-output"
+exitCodeFile="$travisDir/log/$logFilePrefix-exitCode"
 
-echo "$tested:"
-phpunit -c $testdir/phpunit.xml $testdir/$tested
-#result=$(($result || $?))
-
-exit 0
-exit $result
+echo " - $1:" > $outputFile
+phpunit -c $testDir/phpunit.xml $testDir/$1 >> $outputFile
+echo $? > $exitCodeFile

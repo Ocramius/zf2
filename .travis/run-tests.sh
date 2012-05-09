@@ -1,23 +1,19 @@
 #!/bin/bash
 travisdir=$(dirname $(readlink /proc/$$/fd/255))
 testdir="$travisdir/../tests"
-testedcomponents=(`cat "$travisdir/tested-components"`)
+testedComponents=(`cat "$travisdir/tested-components"`)
 result=0
 
-# #cat "$travisdir/tested-components" | xargs -0 -n 1 -P 8 sh -c "phpunit -c $testdir/phpunit.xml $testdir/$1"
+mkdir -p "$travisdir/log"
+cat "$travisdir/tested-components" | xargs -n 1 -L 1 -P 8 $travisdir/run-single-test.sh
 
-
-
-cat "$travisdir/tested-components" | xargs -n 1 -L 1 -P 8 ./run-single-test.sh 
-
-
-
-#find /path -print0 | xargs -0 -n 1 -P <nr_procs> sh -c 'pngcrush $1 temp.$$ && mv temp.$$ $1' sh
-#for tested in "${testedcomponents[@]}"
-#    do
-#        echo "$tested:"
-#        phpunit -c $testdir/phpunit.xml $testdir/$tested
-#        result=$(($result || $?))
-#done
+for testedComponent in "${testedComponents[@]}"
+    do
+        echo "$testedComponent:"
+        component=${testedComponent/\//-}
+        cat "$travisdir/log/$component-output"
+        componentResult=(`cat "$travisdir/log/$component-exitCode"`)
+        result=$(($result || $componentResult))
+done
 
 exit $result
