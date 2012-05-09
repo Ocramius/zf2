@@ -5,7 +5,7 @@ testedComponents=(`cat "$travisdir/tested-components"`)
 result=0
 
 mkdir -p "$travisdir/log"
-cat "$travisdir/tested-components" | xargs -n 1 -L 1 -P 8 $travisdir/run-single-test.sh
+cat "$travisdir/tested-components" | xargs -n 1 -L 1 -P 0 $travisdir/run-single-test.sh
 
 for testedComponent in "${testedComponents[@]}"
 do
