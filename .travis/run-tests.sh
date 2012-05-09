@@ -10,7 +10,7 @@ cat "$travisdir/tested-components" | xargs -n 1 -L 1 -P 0 $travisdir/run-single-
 for testedComponent in "${testedComponents[@]}"
 do
     echo "$testedComponent:"
-    component=${testedComponent/\//-}
+    component=${testedComponent//\//-}
     cat "$travisdir/log/$component-output"
     componentResult=(`cat "$travisdir/log/$component-exitCode"`)
     result=$(($result || $componentResult))
