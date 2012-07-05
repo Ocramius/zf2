@@ -34,16 +34,11 @@ use Zend\View\Exception;
  */
 class EscapeCss extends Escaper\AbstractHelper
 {
-    
     /**
-     * Escape a value for current escaping strategy
-     *
-     * @param string $value
-     * @return string
+     * {@inheritDoc}
      */
     protected function escape($value)
     {
         return $this->getEscaper()->escapeCss($value);
     }
-    
 }

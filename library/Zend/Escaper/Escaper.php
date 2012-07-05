@@ -35,7 +35,7 @@ class Escaper
     /**
      * Current encoding for escaping. If not UTF-8, we convert strings from this encoding
      * pre-escaping and back to this encoding post-escaping.
-     * 
+     *
      * @var string
      */
     protected $encoding = 'utf-8';
@@ -45,35 +45,35 @@ class Escaper
      * htmlspecialchars(). We modify these for PHP 5.4 to take advantage
      * of the new ENT_SUBSTITUTE flag for correctly dealing with invalid
      * UTF-8 sequences.
-     * 
+     *
      * @var string
      */
     protected $htmlSpecialCharsFlags = ENT_QUOTES;
 
     /**
      * Static Matcher which escapes characters for HTML Attribute contexts
-     * 
+     *
      * @var Closure
      */
     protected $htmlAttrMatcher = null;
 
     /**
      * Static Matcher which escapes characters for Javascript contexts
-     * 
+     *
      * @var Closure
      */
     protected $jsMatcher = null;
 
     /**
      * Static Matcher which escapes characters for CSS Attribute contexts
-     * 
+     *
      * @var Closure
      */
     protected $cssMatcher = null;
 
     /**
      * List of all encoding supported by this class
-     * 
+     *
      * @var array
      */
     protected $supportedEncodings = array(
@@ -92,8 +92,9 @@ class Escaper
      * Constructor: Single parameter allows setting of global encoding for use by
      * the current object. If PHP 5.4 is detected, additional ENT_SUBSTITUTE flag
      * is set for htmlspecialchars() calls.
-     * 
+     *
      * @param string $encoding
+     * @throws Exception\InvalidArgumentException
      */
     public function __construct($encoding = null)
     {
@@ -119,7 +120,7 @@ class Escaper
 
     /**
      * Return the encoding that all output/input is expected to be encoded in.
-     * 
+     *
      * @return string
      */
     public function getEncoding()
@@ -130,7 +131,7 @@ class Escaper
     /**
      * Escape a string for the HTML Body context where there are very few characters
      * of special meaning. Internally this will use htmlspecialchars().
-     * 
+     *
      * @param string $string
      * @return string
      */
@@ -144,7 +145,7 @@ class Escaper
      * Escape a string for the HTML Attribute context. We use an extended set of characters
      * to escape that are not covered by htmlspecialchars() to cover cases where an attribute
      * might be unquoted or quoted illegally (e.g. backticks are valid quotes for IE).
-     * 
+     *
      * @param string $string
      * @return string
      */
@@ -170,7 +171,7 @@ class Escaper
      * of cases where HTML escaping was not applied on top of Javascript escaping correctly.
      * Backslash escaping is not used as it still leaves the escaped character as-is and so
      * is not useful in a HTML context.
-     * 
+     *
      * @param string $string
      * @return string
      */
@@ -192,7 +193,7 @@ class Escaper
      * Escape a string for the URI or Parameter contexts. This should not be used to escape
      * an entire URI - only a subcomponent being inserted. The function is a simple proxy
      * to rawurlencode() which now implements RFC 3986 since PHP 5.3 completely.
-     * 
+     *
      * @param string $string
      * @return string
      */
@@ -204,7 +205,7 @@ class Escaper
     /**
      * Escape a string for the CSS context. CSS escaping can be applied to any string being
      * inserted into CSS and escapes everything except alphanumerics.
-     * 
+     *
      * @param string $string
      * @return string
      */
@@ -225,7 +226,7 @@ class Escaper
     /**
      * Callback function for preg_replace_callback that applies HTML Attribute
      * escaping to all matches.
-     * 
+     *
      * @param array $matches
      * @return string
      */
@@ -265,7 +266,7 @@ class Escaper
     /**
      * Callback function for preg_replace_callback that applies Javascript
      * escaping to all matches.
-     * 
+     *
      * @param array $matches
      * @return string
      */
@@ -283,7 +284,7 @@ class Escaper
     /**
      * Callback function for preg_replace_callback that applies CSS
      * escaping to all matches.
-     * 
+     *
      * @param array $matches
      * @return string
      */
@@ -303,8 +304,9 @@ class Escaper
     /**
      * Converts a string to UTF-8 from the base encoding. The base encoding is set via this
      * class' constructor.
-     * 
+     *
      * @param string $string
+     * @throws Exception\RuntimeException
      * @return string
      */
     protected function toUtf8($string)
@@ -338,7 +340,7 @@ class Escaper
 
     /**
      * Checks if a given string appears to be valid UTF-8 or not.
-     * 
+     *
      * @param string $string
      * @return bool
      */
@@ -355,13 +357,15 @@ class Escaper
     /**
      * Encoding conversion helper which wraps iconv and mbstring where they exist or throws
      * and exception where neither is available.
-     * 
+     *
      * @param string $string
+     * @param string $to
+     * @param string $from
+     * @throws Exception\RuntimeException
      * @return string
      */
     protected function convertEncoding($string, $to, $from)
     {
-        $result = '';
         if (function_exists('iconv')) {
             $result = iconv($from, $to, $string);
         } elseif (function_exists('mb_convert_encoding')) {
@@ -382,7 +386,7 @@ class Escaper
 
     /**
      * Entity Map mapping Unicode codepoints to any available named HTML entities
-     * 
+     *
      * @var array
      */
     protected $htmlNamedEntityMap = array(
