@@ -14,8 +14,11 @@ use ArrayAccess;
 use Traversable;
 use Zend\EventManager\EventManagerInterface;
 use Zend\EventManager\ListenerAggregateInterface;
+use Zend\Mvc\Exception;
 use Zend\Mvc\MvcEvent;
 use Zend\Mvc\View\SendResponseListener;
+use Zend\ServiceManager\ServiceManager;
+use Zend\View\HelperPluginManager as ViewHelperManager;
 use Zend\View\Renderer\PhpRenderer as ViewPhpRenderer;
 use Zend\View\Resolver as ViewResolver;
 use Zend\View\Strategy\PhpRendererStrategy;
@@ -31,7 +34,7 @@ use Zend\View\View;
  *
  * Defines and manages the following services:
  *
- * - ViewHelperManager (also aliased to Zend\View\HelperPluginManager)
+ * - ViewHelperManager (also aliased to Zend\View\HelperPluginManager and ViewHelperBroker)
  * - ViewTemplateMapResolver (also aliased to Zend\View\Resolver\TemplateMapResolver)
  * - ViewTemplatePathStack (also aliased to Zend\View\Resolver\TemplatePathStack)
  * - ViewResolver (also aliased to Zend\View\Resolver\AggregateResolver and ResolverInterface)
@@ -55,7 +58,7 @@ class ViewManager implements ListenerAggregateInterface
     protected $listeners = array();
 
     /**
-     * @var object application configuration service
+     * @var \ArrayObject application configuration service
      */
     protected $config;
 
@@ -64,20 +67,50 @@ class ViewManager implements ListenerAggregateInterface
      */
     protected $services;
 
-    /**@+
-     * Various properties representing strategies and objects instantiated and
-     * configured by the view manager
+    /**
+     * @var ExceptionStrategy|null
      */
     protected $exceptionStrategy;
+
+    /**
+     * @var ViewHelperManager|null
+     */
     protected $helperManager;
+
+    /**
+     * @var DefaultRenderingStrategy|null
+     */
     protected $mvcRenderingStrategy;
+
+    /**
+     * @var \Zend\View\Renderer\RendererInterface|null
+     */
     protected $renderer;
+
+    /**
+     * @var \Zend\EventManager\ListenerAggregateInterface|null
+     */
     protected $rendererStrategy;
+
+    /**
+     * @var ViewResolver\ResolverInterface|null
+     */
     protected $resolver;
+
+    /**
+     * @var RouteNotFoundStrategy|null
+     */
     protected $routeNotFoundStrategy;
+
+    /**
+     * @var View|null
+     */
     protected $view;
-    protected $viewModel;
-    /**@-*/
+
+    /**
+     * @var MvcEvent|null
+     */
+    protected $event;
 
     /**
      * Attach the aggregate to the specified event manager
@@ -111,7 +144,7 @@ class ViewManager implements ListenerAggregateInterface
      * @param  $event
      * @return void
      */
-    public function onBootstrap($event)
+    public function onBootstrap(MvcEvent $event)
     {
         $application  = $event->getApplication();
         $services     = $application->getServiceManager();
@@ -120,8 +153,8 @@ class ViewManager implements ListenerAggregateInterface
         $sharedEvents = $events->getSharedManager();
 
         $this->config   = isset($config['view_manager']) && (is_array($config['view_manager']) || $config['view_manager'] instanceof ArrayAccess)
-                        ? $config['view_manager']
-                        : array();
+            ? $config['view_manager']
+            : array();
         $this->services = $services;
         $this->event    = $event;
 
@@ -152,7 +185,7 @@ class ViewManager implements ListenerAggregateInterface
     /**
      * Instantiates and configures the renderer's helper manager
      *
-     * @return \Zend\View\HelperPluginManager
+     * @return ViewHelperManager
      */
     public function getHelperManager()
     {
@@ -253,9 +286,11 @@ class ViewManager implements ListenerAggregateInterface
     public function getLayoutTemplate()
     {
         $layout = 'layout/layout';
+
         if (isset($this->config['layout'])) {
             $layout = $this->config['layout'];
         }
+
         return $layout;
     }
 
@@ -359,14 +394,14 @@ class ViewManager implements ListenerAggregateInterface
      */
     public function getViewModel()
     {
-        if ($this->viewModel) {
-            return $this->viewModel;
+        /* @var $model \Zend\View\Model\ModelInterface */
+        $model = $this->event->getViewModel();
+
+        if (null === $model->getTemplate()) {
+            $model->setTemplate($this->getLayoutTemplate());
         }
 
-        $this->viewModel = $model = $this->event->getViewModel();
-        $model->setTemplate($this->getLayoutTemplate());
-
-        return $this->viewModel;
+        return $model;
     }
 
     /**

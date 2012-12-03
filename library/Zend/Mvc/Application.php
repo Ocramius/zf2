@@ -64,6 +64,7 @@ class Application implements
 
     /**
      * MVC event token
+     *
      * @var MvcEvent
      */
     protected $event;
@@ -86,7 +87,7 @@ class Application implements
     /**
      * @var ServiceManager
      */
-    protected $serviceManager = null;
+    protected $serviceManager;
 
     /**
      * Constructor
@@ -98,17 +99,21 @@ class Application implements
     {
         $this->configuration  = $configuration;
         $this->serviceManager = $serviceManager;
+        $this->event          = new MvcEvent();
 
+        $this->event->setTarget($this);
+        $this->event->setApplication($this);
+        $this->event->setRequest($this->serviceManager->get('Request'));
+        $this->event->setResponse($this->serviceManager->get('Response'));
         $this->setEventManager($serviceManager->get('EventManager'));
-
-        $this->request        = $serviceManager->get('Request');
-        $this->response       = $serviceManager->get('Response');
     }
 
     /**
      * Retrieve the application configuration
      *
      * @return array|object
+     *
+     * @deprecated please use the 'Config' service from the service manager instead
      */
     public function getConfig()
     {
@@ -126,23 +131,18 @@ class Application implements
      */
     public function bootstrap()
     {
-        $serviceManager = $this->serviceManager;
-        $events         = $this->getEventManager();
+        $events = $this->getEventManager();
 
-        $events->attach($serviceManager->get('RouteListener'));
-        $events->attach($serviceManager->get('DispatchListener'));
-        $events->attach($serviceManager->get('ViewManager'));
+        $events->attach($this->serviceManager->get('RouteListener'));
+        $events->attach($this->serviceManager->get('DispatchListener'));
+        $events->attach($this->serviceManager->get('ViewManager'));
 
         // Setup MVC Event
-        $this->event = $event  = new MvcEvent();
-        $event->setTarget($this);
-        $event->setApplication($this)
-              ->setRequest($this->getRequest())
-              ->setResponse($this->getResponse())
-              ->setRouter($serviceManager->get('Router'));
+        $this->event->setRouter($this->serviceManager->get('Router'));
 
         // Trigger bootstrap events
-        $events->trigger(MvcEvent::EVENT_BOOTSTRAP, $event);
+        $events->trigger(MvcEvent::EVENT_BOOTSTRAP, $this->event);
+
         return $this;
     }
 
@@ -160,20 +160,24 @@ class Application implements
      * Get the request object
      *
      * @return \Zend\Stdlib\RequestInterface
+     *
+     * @deprecated please use {@see \Zend\Mvc\MvcEvent::getRequest} instead
      */
     public function getRequest()
     {
-        return $this->request;
+        return $this->event->getRequest();
     }
 
     /**
      * Get the response object
      *
      * @return ResponseInterface
+     *
+     * @deprecated please use {@see \Zend\Mvc\MvcEvent::getResponse} instead
      */
     public function getResponse()
     {
-        return $this->response;
+        return $this->event->getResponse();
     }
 
     /**
@@ -184,6 +188,16 @@ class Application implements
     public function getMvcEvent()
     {
         return $this->event;
+    }
+
+    /**
+     * Set the MVC event instance
+     *
+     * @param MvcEvent $mvcEvent
+     */
+    public function setMvcEvent(MvcEvent $mvcEvent)
+    {
+        $this->event = $mvcEvent;
     }
 
     /**
@@ -199,6 +213,7 @@ class Application implements
             get_called_class(),
         ));
         $this->events = $eventManager;
+
         return $this;
     }
 

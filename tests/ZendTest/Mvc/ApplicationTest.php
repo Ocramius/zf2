@@ -197,7 +197,6 @@ class ApplicationTest extends TestCase
 
     public function testBootstrapRegistersConfiguredMvcEvent()
     {
-        $this->assertNull($this->application->getMvcEvent());
         $this->application->bootstrap();
         $event = $this->application->getMvcEvent();
         $this->assertInstanceOf('Zend\Mvc\MvcEvent', $event);
