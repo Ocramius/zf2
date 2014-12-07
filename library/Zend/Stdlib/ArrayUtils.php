@@ -251,26 +251,12 @@ abstract class ArrayUtils
      * from the second array will be appended to the first array. If both values are arrays, they
      * are merged together, else the value of the second array overwrites the one of the first array.
      *
-     * @param  array $destination
-     * @param  array $origin
+     * @param  array $a
+     * @param  array $b
      * @param  bool  $preserveNumericKeys
      * @return array
      */
-    public static function merge(array $destination, array $origin, $preserveNumericKeys = false)
-    {
-        self::doMerge($destination, $origin, $preserveNumericKeys);
-
-        return $destination;
-    }
-
-    /**
-     * @param array $a
-     * @param array $b
-     * @param bool  $preserveNumericKeys
-     *
-     * @return array
-     */
-    private static function doMerge(array & $a, array & $b, $preserveNumericKeys)
+    public static function merge(array $a, array $b, $preserveNumericKeys = false)
     {
         $toRecursePointer   = -1;
         $toRecurse          = array(
