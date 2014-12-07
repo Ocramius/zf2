@@ -258,17 +258,14 @@ abstract class ArrayUtils
      */
     public static function merge(array $a, array $b, $preserveNumericKeys = false)
     {
+        $stackA             = array();
+        $stackB             = array();
         $toRecursePointer   = -1;
-        $toRecurse          = array(
-            'a' => array(),
-            'b' => array(),
-        );
-
         $currentReplaced    = & $a;
         $currentReplacement = & $b;
 
         do {
-            foreach ($currentReplacement as $newKey => & $newValue) {
+            foreach ($currentReplacement as $newKey => $newValue) {
                 if ($newValue instanceof MergeRemoveKey) {
                     unset($currentReplaced[$newKey]);
 
@@ -299,15 +296,15 @@ abstract class ArrayUtils
                     continue;
                 }
 
-                $toRecurse['a'][] = & $currentReplaced[$newKey];
-                $toRecurse['b'][] = & $currentReplacement[$newKey];
+                $stackA[] = & $currentReplaced[$newKey];
+                $stackB[] = & $currentReplacement[$newKey];
             }
 
-            $toRecursePointer += 1;
-
-            $currentReplaced    = & $toRecurse['a'][$toRecursePointer];
-            $currentReplacement = & $toRecurse['b'][$toRecursePointer];
-        } while (isset($toRecurse['b'][$toRecursePointer]));
+            $toRecursePointer  += 1;
+            $currentReplaced    = & $stackA[$toRecursePointer];
+            // I'm not sure why this reference is required
+            $currentReplacement = & $stackB[$toRecursePointer];
+        } while ($currentReplacement !== null);
 
         return $a;
     }
