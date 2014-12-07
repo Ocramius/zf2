@@ -20,7 +20,8 @@
         "fabpot/php-cs-fixer": "1.*",
         "phpunit/PHPUnit": "~4.0",
         "satooshi/php-coveralls": "dev-master",
-        "phpunit/phpcov": "~2.0"
+        "phpunit/phpcov": "~2.0",
+        "athletic/athletic": "~0.1.8"
     },
     "suggest": {
         "ext-intl": "ext/intl for i18n features (included in default builds of PHP)",
