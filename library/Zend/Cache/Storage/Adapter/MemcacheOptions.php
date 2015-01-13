@@ -266,7 +266,7 @@ class MemcacheOptions extends AdapterOptions
      * @param callable $callback
      * @return $this
      */
-    public function setFailureCallback($callback)
+    public function setFailureCallback(callable $callback)
     {
         $this->getResourceManager()->setFailureCallback($this->getResourceId(), $callback);
         return $this;

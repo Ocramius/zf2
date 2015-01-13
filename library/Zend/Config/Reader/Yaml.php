@@ -35,7 +35,7 @@ class Yaml implements ReaderInterface
      *
      * @param callable $yamlDecoder
      */
-    public function __construct($yamlDecoder = null)
+    public function __construct(callable $yamlDecoder = null)
     {
         if ($yamlDecoder !== null) {
             $this->setYamlDecoder($yamlDecoder);

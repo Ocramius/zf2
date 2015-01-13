@@ -172,7 +172,7 @@ class ObjectCache extends CallbackCache
      * @return string
      * @throws Exception\RuntimeException
      */
-    protected function generateCallbackKey($callback, array $args = array())
+    protected function generateCallbackKey(callable $callback, array $args = array())
     {
         $callbackKey = md5($this->getOptions()->getObjectKey() . '::' . strtolower($callback[1]));
         $argumentKey = $this->generateArgumentsKey($args);

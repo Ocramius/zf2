@@ -704,7 +704,7 @@ class Getopt
      *
      * @return self
      */
-    public function setOptionCallback($option, \Closure $callback)
+    public function setOptionCallback($option, callable $callback)
     {
         $this->optionCallbacks[$option] = $callback;
 

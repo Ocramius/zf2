@@ -93,7 +93,7 @@ class ClassCache extends CallbackCache
      * @return string
      * @throws Exception\RuntimeException
      */
-    protected function generateCallbackKey($callback, array $args)
+    protected function generateCallbackKey(callable $callback, array $args)
     {
         $callbackKey = md5(strtolower($callback));
         $argumentKey = $this->generateArgumentsKey($args);

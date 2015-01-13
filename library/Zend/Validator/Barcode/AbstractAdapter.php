@@ -146,7 +146,7 @@ abstract class AbstractAdapter implements AdapterInterface
      * @param callable $checksum Checksum method to call
      * @return AbstractAdapter
      */
-    protected function setChecksum($checksum)
+    protected function setChecksum(callable $checksum)
     {
         $this->options['checksum'] = $checksum;
         return $this;

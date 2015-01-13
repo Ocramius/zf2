@@ -24,5 +24,5 @@ interface DelegatorFactoryInterface
      *
      * @return mixed
      */
-    public function createDelegatorWithName(ServiceLocatorInterface $serviceLocator, $name, $requestedName, $callback);
+    public function createDelegatorWithName(ServiceLocatorInterface $serviceLocator, $name, $requestedName, callable $callback);
 }
