@@ -603,7 +603,7 @@ class ServiceManager implements ServiceLocatorInterface
      *
      * @return callable
      */
-    private function createDelegatorCallback($delegatorFactory, $rName, $cName, $creationCallback)
+    private function createDelegatorCallback($delegatorFactory, $rName, $cName, callable $creationCallback)
     {
         return function () use ($delegatorFactory, $rName, $cName, $creationCallback) {
             return $delegatorFactory instanceof DelegatorFactoryInterface

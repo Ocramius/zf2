@@ -38,7 +38,7 @@ class CallbackCheckAdapter extends AbstractAdapter
         $tableName = null,
         $identityColumn = null,
         $credentialColumn = null,
-        $credentialValidationCallback = null
+        callable $credentialValidationCallback = null
     ) {
         parent::__construct($zendDb, $tableName, $identityColumn, $credentialColumn);
 
@@ -59,7 +59,7 @@ class CallbackCheckAdapter extends AbstractAdapter
      * @return self
      * @throws Exception\InvalidArgumentException
      */
-    public function setCredentialValidationCallback($validationCallback)
+    public function setCredentialValidationCallback(callable $validationCallback)
     {
         if (!is_callable($validationCallback)) {
             throw new Exception\InvalidArgumentException('Invalid callback provided');

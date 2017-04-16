@@ -507,7 +507,7 @@ class Di implements DependencyInjectionInterface
      * @throws Exception\InvalidCallbackException
      * @throws Exception\RuntimeException
      */
-    protected function createInstanceViaCallback($callback, $params, $alias)
+    protected function createInstanceViaCallback(callable $callback, $params, $alias)
     {
         if (!is_callable($callback)) {
             throw new Exception\InvalidCallbackException('An invalid constructor callback was provided');

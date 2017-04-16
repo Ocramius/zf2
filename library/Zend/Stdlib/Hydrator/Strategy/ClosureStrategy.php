@@ -45,7 +45,7 @@ class ClosureStrategy implements StrategyInterface
      * @param callable $hydrateFunc - anonymous function, that hydrate values
      * into object
      */
-    public function __construct($extractFunc = null, $hydrateFunc = null)
+    public function __construct(callable $extractFunc = null, callable $hydrateFunc = null)
     {
         if (isset($extractFunc)) {
             if (!is_callable($extractFunc)) {

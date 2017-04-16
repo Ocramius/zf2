@@ -31,7 +31,7 @@ class Common extends SoapClient
      * @param string $wsdl
      * @param array $options
      */
-    public function __construct($doRequestCallback, $wsdl, $options)
+    public function __construct(callable $doRequestCallback, $wsdl, $options)
     {
         $this->doRequestCallback = $doRequestCallback;
         parent::__construct($wsdl, $options);

@@ -40,7 +40,7 @@ class CallbackCache extends AbstractPattern
      * @throws Exception\RuntimeException if invalid cached data
      * @throws \Exception
      */
-    public function call($callback, array $args = array())
+    public function call(callable $callback, array $args = array())
     {
         $options = $this->getOptions();
         $storage = $options->getStorage();
@@ -112,7 +112,7 @@ class CallbackCache extends AbstractPattern
      * @throws Exception\RuntimeException
      * @throws Exception\InvalidArgumentException
      */
-    public function generateKey($callback, array $args = array())
+    public function generateKey(callable $callback, array $args = array())
     {
         return $this->generateCallbackKey($callback, $args);
     }
@@ -127,7 +127,7 @@ class CallbackCache extends AbstractPattern
      * @throws Exception\InvalidArgumentException if invalid callback
      * @return string
      */
-    protected function generateCallbackKey($callback, array $args)
+    protected function generateCallbackKey(callable $callback, array $args)
     {
         if (!is_callable($callback, false, $callbackKey)) {
             throw new Exception\InvalidArgumentException('Invalid callback');
